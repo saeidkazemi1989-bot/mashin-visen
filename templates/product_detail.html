@@ -12,6 +12,18 @@
   .kv-item .k{ font-size: 12px; color: var(--muted); display: block; }
   .kv-item .v{ font-size: 14px; font-weight: 700; margin-top: 3px; word-break: break-all; }
   .explain-fa{ direction: rtl; color: #334155; font-style: italic; }
+  .range-badge{ font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 10px; }
+  .range-ok{ background: #ecfdf5; color: var(--success); border: 1px solid #bbf7d0; }
+  .range-out{ background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+  .range-na{ background: #f1f5f9; color: var(--muted); border: 1px solid #cbd5e1; }
+  .kind-card{ border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; background: #fff; overflow: hidden; }
+  .kind-header{ padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid var(--border); font-weight: 800; color: var(--text); display:flex; justify-content:space-between; align-items:center; }
+  .kind-stats span{ margin-left: 10px; font-size: 12.5px; }
+  .kind-table{ font-size: 12px; }
+  .kind-table th, .kind-table td{ padding: 7px 10px; border-bottom: 1px solid #f1f5f9; text-align: right; }
+  .confirm-form{ display:inline; margin-left: 8px; }
+  .confirm-form input{ width: auto; display: inline-block; padding: 6px 10px; font-size: 12px; }
+  .confirm-form button{ padding: 6px 12px; font-size: 12px; margin-left: 4px; }
 </style>
 {% endblock %}
 {% block content %}
@@ -107,34 +119,74 @@
 </div>
 
 <div id="results" class="tabpanel">
-  <div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th>نوع تست</th><th>هدف (target)</th><th>منتظرشده</th><th>مشاهدشده</th><th>وضعیت</th><th>دلیل فنی</th><th>شرح (فارسی)</th><th>زمان</th>
-      </tr></thead>
-      <tbody>
-      {% for r in product.results %}
-      <tr>
-        <td class="nowrap">{{ r.test_kind }}</td>
-        <td>{{ r.target }}</td>
-        <td class="center">{{ r.expected }}</td>
-        <td class="center">{{ r.observed }}</td>
-        <td class="center status-col"><span class="{{ 'pass' if r.status=='PASS' else 'fail' }}">{{ r.status }}</span></td>
-        <td class="nowrap">{{ r.technical_reason }}</td>
-        <td class="explain-fa">{{ r.user_explanation_fa }}</td>
-        <td class="nowrap">{{ r.started_at_fmt }}</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% set grouped = product.by_kind %}
+  {% if grouped %}
+    {% for kind, d in grouped.items() %}
+    <div class="kind-card">
+      <div class="kind-header">
+        <span>{{ kind }}</span>
+        <div class="kind-stats">
+          <span class="range-ok">تعداد: {{ d.total }}</span>
+          <span class="{{ 'range-ok' if d.pass==d.total else 'range-out' }}">تایید: {{ d.pass }}</span>
+          {% if d.fail > 0 %}<span class="range-out">رد: {{ d.fail }}</span>{% endif %}
+          {% if d.error > 0 %}<span class="range-na">خطا: {{ d.error }}</span>{% endif %}
+        </div>
+      </div>
+      <table class="kind-table">
+        <thead>
+          <tr>
+            <th>هدف (Target)</th>
+            <th>منتظرشده</th>
+            <th>مشاهدشده</th>
+            <th>Tolerance</th>
+            <th>限 unteren</th>
+            <th>حد بالایی</th>
+            <th>وضعیت رنج</th>
+            <th>وضعیت کلی</th>
+            <th>تایید اپراتور</th>
+            <th>شرح (فارسی)</th>
+            <th>عملیات</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in d.items %}
+        <tr>
+          <td class="nowrap">{{ item.target }}</td>
+          <td class="nowrap">{{ item.expected }}</td>
+          <td class="nowrap">{{ item.observed }}</td>
+          <td class="nowrap">{{ item.tolerance if item.tolerance is not none else '—' }}</td>
+          <td class="nowrap">{{ item.range_low if item.range_low is not none else '—' }}</td>
+          <td class="nowrap">{{ item.range_high if item.range_high is not none else '—' }}</td>
+          <td class="center"><span class="range-badge {{ 'range-ok' if item.range_status=='OK' else 'range-out' if item.range_status=='OUT_OF_RANGE' else 'range-na' }}">{{ item.range_status }}</span></td>
+          <td class="center status-col"><span class="{{ 'pass' if item.status=='PASS' else 'fail' }}">{{ item.status }}</span></td>
+          <td class="center">{{ '✅ تاییدشده' if item.operator_confirmed else '⏳ تایید نشده' }}</td>
+          <td class="explain-fa">{{ item.explanation_fa }}</td>
+          <td class="center">
+            {% if not item.operator_confirmed %}
+            <form class="confirm-form" action="{{ url_for('confirm_result', pid=product.session_id, result_id=item.test_kind + '_' + (item.target|string) + '_' + loop.index|string) }}" method="post" onsubmit="return confirm('آیا مایل به تایید این تست توسط اپراتور هستید؟');">
+              <input type="text" name="operator_name" value="{{ product.operator }}" placeholder="نام اپراتور">
+              <button type="submit" class="button ghost" style="padding:4px 8px;">تایید</button>
+            </form>
+            {% else %}
+            <span class="badge pass">تایید شده</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="empty"><div class="ic">📭</div><div>هیچ نتیجه تستی ثبت نشده است.</div></div>
+  {% endif %}
 </div>
 
 <div id="plan" class="tabpanel">
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th>ترتیب</th><th>شناسه مرحله</th><th>نوع</th><th>هدف</th><th>액شن</th><th>مشاهدشده</th><th>زمان نسبت به شروع (ms)</th><th> پکت منبع</th>
+        <th>ترتیب</th><th>شناسه مرحله</th><th>نوع</th><th>هدف</th><th>منتظرشده</th><th>Tolerance</th><th>액شن</th><th>مشاهدشده</th><th>زمان نسبت به شروع (ms)</th><th>پکت منبع</th>
       </tr></thead>
       <tbody>
       {% for s in product.plan_steps %}
@@ -143,6 +195,8 @@
         <td class="nowrap">{{ s.step_id }}</td>
         <td>{{ s.kind }}</td>
         <td>{{ s.target }}</td>
+        <td class="nowrap">{{ s.expected }}</td>
+        <td class="nowrap">{{ s.tolerance if s.tolerance is not none else '—' }}</td>
         <td>{{ s.action }}</td>
         <td class="center">{{ 'بله' if s.observed else 'خیر' }}</td>
         <td class="nowrap">{{ "%.1f"|format(s.relative_ms) }}</td>
@@ -181,7 +235,7 @@
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th>زمان دریافت</th><th>مبدا IP:پورت</th><th>مقصد IP:پورت</th><th>پ이로 (hex)</th><th>رابطه</th>
+        <th>زمان دریافت</th><th>مبدا IP:پورت</th><th>مقصد IP:پورت</th><th>پديو (hex)</th><th>رابطه</th>
       </tr></thead>
       <tbody>
       {% for p in product.packets %}

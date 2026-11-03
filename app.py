@@ -7,6 +7,8 @@ Mashin-Visen — داشبورد گزارشگاری تست عملکردی لام�
   * داشبورد مركزی با شاخص‌ها و نمودار (بدون وابستگی به CDN)/
   * ثبت هر محصول تست‌شده در پوشه مجزا تحت products/<شناسه>/
   * تولید گزارش اکسل چند صفحه‌ای برای هر محصول
+  * تایید/تاییدشده توسط اپراتور
+  * نمایش تفاوت و Tolernace برای تست‌های عقربه (GAUGE)
 """
 import os
 import json
@@ -17,7 +19,7 @@ from io import BytesIO
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    send_file, flash, abort
+    send_file, flash, abort, jsonify
 )
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -73,7 +75,48 @@ def fmt_date(ts):
     return fmt_ts(ts, "%Y/%m/%d")
 
 
-def _summarize_results(results):
+def _calc_tolerance(expected, tolerance):
+    """محاسبهLimit پایین و بالا بر اساس tolerated value."""
+    if expected is None:
+        return None, None
+    try:
+        exp = float(expected)
+    except (TypeError, ValueError):
+        return None, None
+    if tolerance is None:
+        return exp, exp
+    try:
+        tol = float(tolerance)
+    except (TypeError, ValueError):
+        return exp, exp
+    return exp - tol, exp + tol
+
+
+def _status_with_tolerance(observed, expected, tolerance):
+    """بازگرداندن وضعیت thích برای تست‌های عددی: OK/OUT_OF_RANGE/NA"""
+    if observed is None or expected is None:
+        return "NA"
+    try:
+        obs = float(observed)
+        exp = float(expected)
+    except (TypeError, ValueError):
+        return "NA"
+    if tolerance is None:
+        # اگر Tolerance تعریف نشده باشد، مساوی بودن کافی است
+        return "OK" if abs(obs - exp) < 1e-9 else "OUT_OF_RANGE"
+    try:
+        tol = float(tolerance)
+    except (TypeError, ValueError):
+        return "OK" if abs(obs - exp) < 1e-9 else "OUT_OF_RANGE"
+    low, high = _calc_tolerance(expected, tolerance)
+    if low is None or high is None:
+        return "NA"
+    if low - 1e-9 <= obs <= high + 1e-9:
+        return "OK"
+    return "OUT_OF_RANGE"
+
+
+def _summarize_results(results, plan_steps=None):
     total = len(results)
     pass_c = sum(1 for r in results if r.get("status") == "PASS")
     fail_c = sum(1 for r in results if r.get("status") == "FAIL")
@@ -82,9 +125,16 @@ def _summarize_results(results):
 
     by_kind = {}
     examples_fa = []
+    # ساخت lookup از plan_steps برای دسترسی به tolerance
+    plan_lookup = {}
+    if plan_steps:
+        for s in plan_steps:
+            key = (s.get("kind"), s.get("target"))
+            plan_lookup[key] = s
+
     for r in results:
         k = r.get("test_kind") or "NA"
-        b = by_kind.setdefault(k, {"total": 0, "pass": 0, "fail": 0, "error": 0})
+        b = by_kind.setdefault(k, {"total": 0, "pass": 0, "fail": 0, "error": 0, "items": []})
         b["total"] += 1
         s = r.get("status")
         if s == "PASS":
@@ -93,6 +143,36 @@ def _summarize_results(results):
             b["fail"] += 1
         elif s == "ERROR":
             b["error"] += 1
+
+        # enriched item برای نمایش جزئیات
+        expected = r.get("expected")
+        observed = r.get("observed")
+        tolerance = None
+        pl_key = (r.get("test_kind"), r.get("target"))
+        if pl_key in plan_lookup:
+            tolerance = plan_lookup[pl_key].get("tolerance") or plan_lookup[pl_key].get("expected_tolerance")
+
+        range_status = _status_with_tolerance(observed, expected, tolerance)
+        low, high = _calc_tolerance(expected, tolerance)
+
+        item = {
+            "test_kind": k,
+            "target": r.get("target"),
+            "expected": expected,
+            "observed": observed,
+            "status": s,
+            "range_status": range_status,
+            "tolerance": tolerance,
+            "range_low": low,
+            "range_high": high,
+            "technical_reason": r.get("technical_reason"),
+            "explanation_fa": r.get("user_explanation_fa") or "",
+            "started_at_fmt": fmt_ts(r.get("started_at")),
+            "operator_confirmed": bool(r.get("operator_confirmed")),
+            "confirmed_by": r.get("confirmed_by", ""),
+        }
+        b["items"].append(item)
+
         if len(examples_fa) < 6:
             examples_fa.append({
                 "status": s,
@@ -106,13 +186,13 @@ def _summarize_results(results):
 
 
 def _detail_from_parts(session, results, events, packets, test_plan, placement, errors):
-    """ساخت دیکشنر کامل یک محصول از بخش‌های داده‌ای."""
     ctx = session.get("product_context") or {}
     tp = session.get("test_plan") or {}
     outcome = session.get("inspection_outcome") or {}
-    s = _summarize_results(results)
-
     plan_steps = tp.get("steps") or [] if isinstance(tp, dict) else []
+
+    s = _summarize_results(results, plan_steps)
+
     for r in results:
         r["started_at_fmt"] = fmt_ts(r.get("started_at"))
     for e in events:
@@ -171,7 +251,6 @@ def _detail_from_parts(session, results, events, packets, test_plan, placement, 
 
 
 def _summary_from_session(session, results):
-    """دیکشنر خلاصه برای داشبورد/لیست."""
     ctx = session.get("product_context") or {}
     tp = session.get("test_plan") or {}
     outcome = session.get("inspection_outcome") or {}
@@ -210,7 +289,6 @@ def _summary_from_session(session, results):
 
 
 def _build_current():
-    """جلسه تست جاری از فایل‌های ریشه پروژه."""
     session = _load_json(os.path.join(BASE_DIR, "session.json")) or {}
     return {
         "session": session,
@@ -355,24 +433,28 @@ def build_excel_bytes(product):
     ws.column_dimensions["A"].width = 34
     ws.column_dimensions["B"].width = 60
 
-    # Sheet 2: Test Results
-    res_headers = ["نوع تست", "هدف (target)", "منتظرشده", "مشاهدشده", "وضعیت",
-                   "دلیل فنی", "شرح (فارسی)", "زمان شروع"]
+    # Sheet 2: Test Results (Enriched)
+    res_headers = ["نوع تست", "هدف", "منتظرشده", "مشاهدشده", "Low Range", "High Range",
+                   "وضعیت رنج", "وضعیت کلی", "تایید اپراتور", "دلیل فنی", "شرح (فارسی)", "زمان شروع"]
     res_rows = [
-        [x.get("test_kind"), x.get("target"), x.get("expected"), x.get("observed"),
-         x.get("status"), x.get("technical_reason"), x.get("user_explanation_fa"),
-         x.get("started_at_fmt") or fmt_ts(x.get("started_at"))]
+        [
+            x.get("test_kind"), x.get("target"), x.get("expected"), x.get("observed"),
+            x.get("range_low"), x.get("range_high"), x.get("range_status"), x.get("status"),
+            "بله" if x.get("operator_confirmed") else "خیر",
+            x.get("technical_reason"), x.get("explanation_fa"),
+            x.get("started_at_fmt") or fmt_ts(x.get("started_at")),
+        ]
         for x in (product.get("results") or [])
     ]
-    _write_sheet(wb.create_sheet("نتایج تست"), "نتایج تست", res_headers, res_rows, date_cols=(8,))
+    _write_sheet(wb.create_sheet("نتایج تست"), "نتایج تست", res_headers, res_rows, date_cols=(12,))
 
     # Sheet 3: Test Plan Steps
-    step_headers = ["ترتیب", "شناسه مرحله", "نوع", "هدف", "اکشن", "مشاهدشده",
+    step_headers = ["ترتیب", "شناسه مرحله", "نوع", "هدف", "منتظرشده", "Tolerance", "اکشن", "مشاهدشده",
                     "زمان نسبت به شروع (ms)", "پکت منبع"]
     step_rows = [
-        [s.get("order"), s.get("step_id"), s.get("kind"), s.get("target"), s.get("action"),
-         "بله" if s.get("observed") else "خیر", f'{s.get("relative_ms", 0):.1f}',
-         s.get("source_packet_id")]
+        [s.get("order"), s.get("step_id"), s.get("kind"), s.get("target"), s.get("expected"),
+         s.get("tolerance"), s.get("action"), "بله" if s.get("observed") else "خیر",
+         f'{s.get("relative_ms", 0):.1f}', s.get("source_packet_id")]
         for s in (product.get("plan_steps") or [])
     ]
     _write_sheet(wb.create_sheet("مراحل برنامه"), "مراحل برنامه", step_headers, step_rows)
@@ -433,7 +515,6 @@ def dashboard():
     current = _build_current()
     products = list_products()
 
-    # KPIها: محصولات بوفـsed + جلسه جاری (اگر بوفـsed نشده باشد)
     all_items = list(products)
     cur_sum = current["summary"]
     if not current["session"].get("session_id") or not any(
@@ -510,6 +591,36 @@ def product_detail(pid):
     if product is None:
         abort(404)
     return render_template("product_detail.html", product=product)
+
+
+@app.route("/products/<pid>/confirm/<result_id>", methods=["POST"])
+def confirm_result(pid, result_id):
+    """تایید یک نتیجه تست توسط اپراتور."""
+    product = get_product(pid)
+    if product is None:
+        abort(404)
+    # پیدا کردن نتیجه و علامت‌گذاری تایید
+    pdir = os.path.join(PRODUCTS_DIR, pid)
+    if not os.path.isdir(pdir):
+        abort(404)
+    results_path = os.path.join(pdir, "results.jsonl")
+    rows = _load_jsonl(results_path)
+    updated = False
+    for r in rows:
+        if r.get("result_id") == result_id:
+            r["operator_confirmed"] = True
+            r["confirmed_by"] = request.form.get("operator_name", product.get("operator", "Operator"))
+            r["confirmed_at"] = datetime.datetime.now().isoformat()
+            updated = True
+            break
+    if updated:
+        with open(results_path, "w", encoding="utf-8") as f:
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        flash("نتایج تست توسط اپراتور تایید شد.", "success")
+    else:
+        flash("نتایج تست یافت نشد.", "error")
+    return redirect(url_for("product_detail", pid=pid))
 
 
 @app.route("/products/create", methods=["GET", "POST"])
