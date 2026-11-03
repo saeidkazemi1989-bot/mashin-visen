@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} — ماشین ویژن</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+<header class="topbar">
+  <div class="container">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="font-size:22px;">🔧</span>
+      <span class="brand">ماشین ویژن — داشبورد گزارشگاری تست عملکردی</span>
+    </div>
+    <nav>
+      <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint=='dashboard' %}active{% endif %}">داشبورد</a>
+      <a href="{{ url_for('product_list') }}" class="{% if request.endpoint=='product_list' %}active{% endif %}">لیست محصولات تست شده</a>
+      <a href="{{ url_for('create_product') }}" class="{% if request.endpoint=='create_product' %}active{% endif %}">ثبت محصول تستی جدید</a>
+    </nav>
+  </div>
+</header>
+
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div class="flash {{ category }}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<footer style="margin: 40px 0 20px; color: var(--muted); font-size: 12px; text-align: center;">
+  سامانه گزارشگاری تست عملکردی لامپ‌های شসویی توسط ماشین ویژن (AI) &nbsp;|&nbsp; خط تولید أمام‌پانل خودرو
+</footer>
+</body>
+</html>

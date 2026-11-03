@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>لیست محصولات تست شده</h1>
+    <p class="small">هر سطر یک جلسه تست correspond با یک پوشه ذخیره‌شده است.</p>
+  </div>
+  <div class="actions">
+    <a href="{{ url_for('dashboard') }}" class="button ghost">بازگشت به داشبورد</a>
+    <a href="{{ url_for('create_product') }}" class="button">ثبت محصول جدید</a>
+  </div>
+</div>
+
+{% if products %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>شناسه جلسه</th><th>محصول / رِوِژن</th><th>برنامه تست</th><th>اپراتور</th>
+        <th>وضعیت نهایی</th><th>نتایج (تایید/رد/خطا)</th><th>زمان شروع</th><th>مدت</th><th>عملیات</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for p in products %}
+    <tr>
+      <td class="nowrap">{{ p.session_id }}</td>
+      <td>{{ p.product_name or p.product_id }} <span class="badge {{ 'pass' if p.outcome_accepted else 'fail' }}">{{ 'تایید' if p.outcome_accepted else 'رد' }}</span></td>
+      <td>{{ p.plan_name }}</td>
+      <td>{{ p.operator }}</td>
+      <td class="center"><span class="badge {{ 'pass' if p.outcome_accepted else 'fail' }}">{{ 'تاییدشده' if p.outcome_accepted else 'رد/خطا' }}</span></td>
+      <td class="center">{{ p.pass_tests }}/{{ p.total_tests }} <span class="small">(خطا: {{ p.error_tests }})</span></td>
+      <td class="nowrap">{{ p.started_at_iso }}</td>
+      <td class="nowrap">{{ "%.1f"|format(p.duration_seconds) }} ثانیه</td>
+      <td class="center">
+        <a href="{{ url_for('product_detail', pid=p.session_id) }}" class="button ghost" style="padding:6px 10px;">مشاهده</a>
+        <a href="{{ url_for('download_file', pid=p.session_id, filename='report.xlsx') }}" class="button ghost" style="padding:6px 10px;">گزارش اکسل</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty"><div class="ic">📦</div><div>هیچ محصولی ثبت نشده است. می‌توانید اولین تست را ثبت کنید.</div></div>
+{% endif %}
+{% endblock %}

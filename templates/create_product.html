@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>ثبت محصول تستی جدید</h1>
+    <p class="small">برای هر محصول تست‌شده یک پوشه مجزا ساخته می‌شود و اطلاعات تست (نتایج، برنامه، رویدادها، پکت‌ها، گزارش اکسل) در آن ذخیره می‌شود.</p>
+  </div>
+  <div class="actions">
+    <a href="{{ url_for('dashboard') }}" class="button ghost">بازگشت به داشبورد</a>
+  </div>
+</div>
+
+<div class="card">
+  <form method="post" action="{{ url_for('create_product') }}">
+    <div class="form-grid">
+      <div>
+        <label>شناسه محصول (product_id)</label>
+        <input name="product_id" value="207" required placeholder="مثلاً 207">
+      </div>
+      <div>
+        <label>نام محصول</label>
+        <input name="product_name" value="لامپ‌های شاسی" required placeholder="مثلاً لامپ‌های شاسی">
+      </div>
+      <div>
+        <label>رِوِژن محصول</label>
+        <input name="product_revision" value="00" required placeholder="مثلاً 00">
+      </div>
+      <div>
+        <label>شماره سريال (product_serial)</label>
+        <input name="product_serial" required placeholder="مثلاً 1">
+      </div>
+      <div>
+        <label>اپراتور</label>
+        <input name="operator" value="Default Administrator" required>
+      </div>
+      <div>
+        <label>برنامه تست (plan_id)</label>
+        <input name="plan_id" value="LEARNED_CAN_TEST" required>
+      </div>
+      <div>
+        <label>نام برنامه تست</label>
+        <input name="plan_name" value="Learned CAN Test" required>
+      </div>
+      <div>
+        <label>رِوِژن برنامه تست</label>
+        <input name="plan_revision" value="TP20261009_174324_458049" required>
+      </div>
+      <div class="form-row">
+        <label>نötز (یادداشت)</label>
+        <textarea name="notes" rows="2" placeholder="توضیحات اضافی درباره این تست"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:18px; display:flex; gap:10px;">
+      <button type="submit" class="button">ساخت پوشه محصول و گزارش</button>
+      <a href="{{ url_for('dashboard') }}" class="button ghost">لغو</a>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h3>ساخت سریع از جلسه تست جاری</h3>
+  <p class="small">اگر فایل‌های تست (session.json، results.jsonl و ...) در ریشه پروژه وجود دارند، می‌توانید آن‌ها را به صورت یک محصول تستی در پوشه جدید ذخیره کنید.</p>
+  {% if current %}
+  <form action="{{ url_for('create_from_current') }}" method="post" onsubmit="return confirm('آیا مایل به ذخیره جلسه تست جاری به عنوان یک محصول تستی جدید هستید؟');">
+    <button type="submit" class="button">ذخیره جلسه جاری در پوشه محصول</button>
+    <span class="small" style="margin-left:10px;">جلسه جاری: {{ current.session_id }} · {{ current.product_name or current.product_id }}</span>
+  </form>
+  {% else %}
+  <div class="empty" style="padding:16px;"><div class="ic">ℹ️</div><div>جلسه تست جاری در ریشه پروژه یافت نشد.</div></div>
+  {% endif %}
+</div>
+{% endblock %}

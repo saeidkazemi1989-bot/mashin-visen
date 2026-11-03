@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block extra_head %}
+<style>
+  .tabpanel table{ font-size: 12.5px; }
+  .badge-group{ display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 700; border: 1px solid var(--border); }
+  .wrap{ white-space: pre-wrap; word-break: break-all; font-family: Consolas, monospace; font-size: 11.5px; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid var(--border); max-width: 100%; overflow: auto; }
+  .hex{ color: #0f766e; font-weight: 700; }
+  .status-col .pass{ color: var(--success); font-weight: 700; }
+  .status-col .fail{ color: var(--danger); font-weight: 700; }
+  .kv-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .kv-item{ background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  .kv-item .k{ font-size: 12px; color: var(--muted); display: block; }
+  .kv-item .v{ font-size: 14px; font-weight: 700; margin-top: 3px; word-break: break-all; }
+  .explain-fa{ direction: rtl; color: #334155; font-style: italic; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>جزئیات محصول · {{ product.session_id }}</h1>
+    <p class="small">{{ product.product_name or product.product_id }} · رِوِژن {{ product.product_revision }} · برنامه تست: {{ product.plan_name }}</p>
+  </div>
+  <div class="actions">
+    <a href="{{ url_for('product_list') }}" class="button ghost">بازگشت به لیست</a>
+    <a href="{{ url_for('dashboard') }}" class="button ghost">داشبورد</a>
+    <a href="{{ url_for('download_file', pid=product.session_id, filename='report.xlsx') }}" class="button">دانلود گزارش اکسل</a>
+  </div>
+</div>
+
+<!-- Outcome banner -->
+<div class="card" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+  <div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+      <span class="badge {{ 'pass' if product.outcome_accepted else 'fail' }}">{{ 'تاییدشده (PASS)' if product.outcome_accepted else 'ردشده (FAIL)' }}</span>
+      <span class="small">تعداد تست‌ها: {{ product.total_tests }} &bull; تایید: {{ product.pass_tests }} &bull; رد: {{ product.fail_tests }} &bull; خطا: {{ product.error_tests }}</span>
+    </div>
+    <div>
+      <span class="kv"><b>شروع:</b> {{ product.started_at_iso }}</span>
+      <span class="kv" style="margin-left:14px;"><b>اتمام:</b> {{ product.completed_at_iso }}</span>
+      <span class="kv" style="margin-left:14px;"><b>مدت:</b> {{ "%.1f"|format(product.duration_seconds) }} ثانیه</span>
+    </div>
+  </div>
+  <div class="kv-grid" style="margin-top:10px;">
+    <div class="kv-item"><span class="k">محصول</span><span class="v">{{ product.product_name or product.product_id }}</span></div>
+    <div class="kv-item"><span class="k">رِوِژن محصول</span><span class="v">{{ product.product_revision }}</span></div>
+    <div class="kv-item"><span class="k">برنامه تست</span><span class="v">{{ product.plan_name }} ({{ product.plan_id }})</span></div>
+    <div class="kv-item"><span class="k">رِوِژن برنامه</span><span class="v">{{ product.plan_revision }}</span></div>
+    <div class="kv-item"><span class="k">اپراتور</span><span class="v">{{ product.operator }}</span></div>
+    <div class="kv-item"><span class="k">حالت برنامه</span><span class="v">{{ product.test_plan_mode }}</span></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button onclick="opentab(event, 'summary')" id="tab-summary" class="active">خلاصه و شاخص‌ها</button>
+  <button onclick="opentab(event, 'results')" id="tab-results">نتایج تست ({{ product.total_tests }})</button>
+  <button onclick="opentab(event, 'plan')" id="tab-plan">برنامه تست و مراحل ({{ product.plan_steps_count }})</button>
+  <button onclick="opentab(event, 'events')" id="tab-events">رویدادها ({{ product.event_count }})</button>
+  <button onclick="opentab(event, 'packets')" id="tab-packets">پکت‌های CAN ({{ product.packet_count }})</button>
+  <button onclick="opentab(event, 'placement')" id="tab-placement">جایگاه‌دهی و خطاها</button>
+</div>
+
+<div id="summary" class="tabpanel active">
+  <h3>شاخص‌های کلیدی</h3>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="l">تست‌های تاییدشده</div><div class="v ok">{{ product.pass_tests }}</div></div>
+    <div class="kpi"><div class="l">تست‌های ردشده</div><div class="v bad">{{ product.fail_tests }}</div></div>
+    <div class="kpi"><div class="l">خطاهای سیستمی</div><div class="v bad">{{ product.error_tests }}</div></div>
+    <div class="kpi"><div class="l">نرخ تایید</div><div class="v total">{{ "%.1f"|format(product.pass_rate) }}%</div></div>
+    <div class="kpi"><div class="l">مدت کل تست</div><div class="v">{{ "%.1f"|format(product.duration_seconds) }} ثانیه</div></div>
+    <div class="kpi"><div class="l">تعداد پکت CAN</div><div class="v">{{ product.packet_count }}</div></div>
+  </div>
+
+  <div style="display:flex; gap:18px; flex-wrap:wrap;">
+    <div class="chart" style="flex:1; min-width:260px;">
+      <div class="chart-title">توزیع بر اساس نوع تست</div>
+      <svg viewBox="0 0 520 300" role="img">
+        <line x1="60" y1="240" x2="500" y2="240" stroke="#cbd5e1" stroke-width="2"/>
+        <line x1="60" y1="240" x2="60" y2="40" stroke="#cbd5e1" stroke-width="2"/>
+        {% set maxv = (product.by_kind.values() | map(attribute='total') | max) if product.by_kind else 1 %}
+        {% set nk = product.by_kind | length %}
+        {% set step = 440 / nk if nk else 0 %}
+        {% set i = 0 %}
+        {% for kind, d in product.by_kind.items() %}
+        {% set x = 60 + i * step + step/2 %}
+        {% set h = (d.total / maxv) * 180 %}
+        <rect x="{{ x - 26 }}" y="{{ 240 - h }}" width="52" height="{{ h }}" fill="var(--primary)" rx="4"/>
+        <text x="{{ x }}" y="258" text-anchor="middle" font-size="12" fill="#64748b">{{ kind }}</text>
+        <text x="{{ x }}" y="{{ 236 - h }}" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">{{ d.total }}</text>
+        {% set _ = i+1 %}
+        {% endfor %}
+      </svg>
+      <div class="small" style="margin-top:6px; text-align:center;">تعداد آیتم‌های هر نوع تست</div>
+    </div>
+    <div class="card" style="flex:1; min-width:260px;">
+      <h3>شرح نتایج (فارسی)</h3>
+      {% if product.examples_fa %}
+      <ul style="padding-right:20px; line-height:1.8;">
+      {% for e in product.examples_fa %}
+        <li><span class="badge {{ 'pass' if e.status=='PASS' else 'fail' }}">{{ e.status }}</span> <b>{{ e.target }}</b>: <span class="explain-fa">{{ e.explanation }}</span></li>
+      {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty" style="padding:20px;"><div class="ic">📝</div><div>شرحی در فارسی ثبت نشده است.</div></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div id="results" class="tabpanel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>نوع تست</th><th>هدف (target)</th><th>منتظرشده</th><th>مشاهدشده</th><th>وضعیت</th><th>دلیل فنی</th><th>شرح (فارسی)</th><th>زمان</th>
+      </tr></thead>
+      <tbody>
+      {% for r in product.results %}
+      <tr>
+        <td class="nowrap">{{ r.test_kind }}</td>
+        <td>{{ r.target }}</td>
+        <td class="center">{{ r.expected }}</td>
+        <td class="center">{{ r.observed }}</td>
+        <td class="center status-col"><span class="{{ 'pass' if r.status=='PASS' else 'fail' }}">{{ r.status }}</span></td>
+        <td class="nowrap">{{ r.technical_reason }}</td>
+        <td class="explain-fa">{{ r.user_explanation_fa }}</td>
+        <td class="nowrap">{{ r.started_at_fmt }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="plan" class="tabpanel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>ترتیب</th><th>شناسه مرحله</th><th>نوع</th><th>هدف</th><th>액شن</th><th>مشاهدشده</th><th>زمان نسبت به شروع (ms)</th><th> پکت منبع</th>
+      </tr></thead>
+      <tbody>
+      {% for s in product.plan_steps %}
+      <tr>
+        <td class="center">{{ s.order }}</td>
+        <td class="nowrap">{{ s.step_id }}</td>
+        <td>{{ s.kind }}</td>
+        <td>{{ s.target }}</td>
+        <td>{{ s.action }}</td>
+        <td class="center">{{ 'بله' if s.observed else 'خیر' }}</td>
+        <td class="nowrap">{{ "%.1f"|format(s.relative_ms) }}</td>
+        <td class="nowrap wrap">{{ s.source_packet_id }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="events" class="tabpanel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>زمان</th><th>نوع رویداد</th><th>شناسه (identifier)</th><th>هدف</th><th>منتظرشده</th><th>مرحله تست</th><th>پکت</th>
+      </tr></thead>
+      <tbody>
+      {% for e in product.events %}
+      <tr>
+        <td class="nowrap">{{ e.occurred_at_fmt }}</td>
+        <td>{{ e.kind }}</td>
+        <td class="nowrap">{{ e.identifier }}</td>
+        <td>{{ e.target }}</td>
+        <td class="center">{{ e.expected }}</td>
+        <td class="nowrap">{{ (e.details.test_plan.step_id if e.details and e.details.test_plan else '') }}</td>
+        <td class="nowrap wrap">{{ e.packet_id }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="packets" class="tabpanel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>زمان دریافت</th><th>مبدا IP:پورت</th><th>مقصد IP:پورت</th><th>پ이로 (hex)</th><th>رابطه</th>
+      </tr></thead>
+      <tbody>
+      {% for p in product.packets %}
+      <tr>
+        <td class="nowrap">{{ p.received_at_fmt }}</td>
+        <td class="nowrap wrap">{{ p.source_ip }}:{{ p.source_port }}</td>
+        <td class="nowrap wrap">{{ p.destination_ip }}:{{ p.destination_port }}</td>
+        <td class="wrap hex">{{ p.payload_hex }}</td>
+        <td>{{ p.capture_interface }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="placement" class="tabpanel">
+  <div style="display:flex; gap:18px; flex-wrap:wrap;">
+    <div class="card" style="flex:1; min-width:300px;">
+      <h3>خطاها</h3>
+      {% if product.errors %}
+      <ul style="padding-right:20px; line-height:1.8;">
+      {% for err in product.errors %}
+        <li>{{ err }}</li>
+      {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty" style="padding:20px;"><div class="ic">✅</div><div>هیچ خطایی ثبت نشده است.</div></div>
+      {% endif %}
+    </div>
+    <div class="card" style="flex:1; min-width:300px;">
+      <h3>جایگاه‌دهی تصویر (placement)</h3>
+      {% if product.placement %}
+      <table class="kv">
+        <tr><td>موتور estimate</td><td>{{ product.placement.engine }}</td></tr>
+        <tr><td>dx / dy</td><td>{{ product.placement.dx }} / {{ product.placement.dy }}</td></tr>
+        <tr><td>spreッド</td><td>{{ product.placement.spread_px }} px</td></tr>
+        <tr><td>تاییدشده / رد / presenting</td><td>{{ product.placement.counts.trusted }} / {{ product.placement.counts.rejected }} / {{ product.placement.counts.offered }}</td></tr>
+        <tr><td>mediana زمان estimate</td><td>{{ "%.3f"|format(product.placement.estimate_ms_median) }} ms</td></tr>
+        <tr><td>وضعیت قفل</td><td>{{ 'قفل‌شده' if product.placement.locked else 'باز' }}</td></tr>
+      </table>
+      {% else %}
+      <div class="empty" style="padding:20px;"><div class="ic">📍</div><div>داده‌های جایگاه‌دهی موجود نیست.</div></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+function opentab(evt, tabId){
+  document.querySelectorAll('.tabpanel').forEach(function(el){ el.classList.remove('active'); });
+  document.querySelectorAll('.tabs button').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById(tabId).classList.add('active');
+  if(evt) evt.currentTarget.classList.add('active');
+}
+</script>
+{% endblock %}
