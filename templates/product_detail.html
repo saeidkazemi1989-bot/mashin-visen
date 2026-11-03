@@ -24,18 +24,18 @@
   .confirm-form{ display:inline; margin-left: 8px; }
   .confirm-form input{ width: auto; display: inline-block; padding: 6px 10px; font-size: 12px; }
   .confirm-form button{ padding: 6px 12px; font-size: 12px; margin-left: 4px; }
+  .back-link{ margin-bottom: 10px; display: inline-block; }
 </style>
 {% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
     <h1>جزئیات محصول · {{ product.session_id }}</h1>
-    <p class="small">{{ product.product_name or product.product_id }} · رِوِژن {{ product.product_revision }} · برنامه تست: {{ product.plan_name }}</p>
+    <p class="small">{{ product.product_name or product.product_id }} · نوع: {{ product.product_type }} · رِوِژن {{ product.product_revision }} · برنامه: {{ product.plan_name }}</p>
   </div>
   <div class="actions">
-    <a href="{{ url_for('product_list') }}" class="button ghost">بازگشت به لیست</a>
-    <a href="{{ url_for('dashboard') }}" class="button ghost">داشبورد</a>
-    <a href="{{ url_for('download_file', pid=product.session_id, filename='report.xlsx') }}" class="button">دانلود گزارش اکسل</a>
+    <a href="{{ url_for('dashboard', data_path=data_path) }}" class="button ghost">بازگشت به داشبورد</a>
+    <a href="{{ url_for('download_excel', pid=product.session_id, data_path=data_path) }}" class="button">دانلود گزارش اکسل</a>
   </div>
 </div>
 
@@ -47,25 +47,27 @@
       <span class="small">تعداد تست‌ها: {{ product.total_tests }} &bull; تایید: {{ product.pass_tests }} &bull; رد: {{ product.fail_tests }} &bull; خطا: {{ product.error_tests }}</span>
     </div>
     <div>
-      <span class="kv"><b>شروع:</b> {{ product.started_at_iso }}</span>
-      <span class="kv" style="margin-left:14px;"><b>اتمام:</b> {{ product.completed_at_iso }}</span>
+      <span class="kv"><b>شروع (شمسی):</b> {{ product.started_at_iso }}</span>
+      <span class="kv" style="margin-left:14px;"><b>اتمام (شمسی):</b> {{ product.completed_at_iso }}</span>
       <span class="kv" style="margin-left:14px;"><b>مدت:</b> {{ "%.1f"|format(product.duration_seconds) }} ثانیه</span>
     </div>
   </div>
   <div class="kv-grid" style="margin-top:10px;">
-    <div class="kv-item"><span class="k">محصول</span><span class="v">{{ product.product_name or product.product_id }}</span></div>
+    <div class="kv-item"><span class="k">شناسه جلسه</span><span class="v">{{ product.session_id }}</span></div>
+    <div class="kv-item"><span class="k">نوع محصول</span><span class="v">{{ product.product_type }}</span></div>
+    <div class="kv-item"><span class="k">نام محصول</span><span class="v">{{ product.product_name or product.product_id }}</span></div>
     <div class="kv-item"><span class="k">رِوِژن محصول</span><span class="v">{{ product.product_revision }}</span></div>
+    <div class="kv-item"><span class="k">سریال</span><span class="v">{{ product.product_serial }}</span></div>
+    <div class="kv-item"><span class="k">اپراتور</span><span class="v">{{ product.operator }}</span></div>
     <div class="kv-item"><span class="k">برنامه تست</span><span class="v">{{ product.plan_name }} ({{ product.plan_id }})</span></div>
     <div class="kv-item"><span class="k">رِوِژن برنامه</span><span class="v">{{ product.plan_revision }}</span></div>
-    <div class="kv-item"><span class="k">اپراتور</span><span class="v">{{ product.operator }}</span></div>
-    <div class="kv-item"><span class="k">حالت برنامه</span><span class="v">{{ product.test_plan_mode }}</span></div>
   </div>
 </div>
 
 <div class="tabs">
   <button onclick="opentab(event, 'summary')" id="tab-summary" class="active">خلاصه و شاخص‌ها</button>
   <button onclick="opentab(event, 'results')" id="tab-results">نتایج تست ({{ product.total_tests }})</button>
-  <button onclick="opentab(event, 'plan')" id="tab-plan">برنامه تست و مراحل ({{ product.plan_steps_count }})</button>
+  <button onclick="opentab(event, 'plan')" id="tab-plan">برنامه تست و مراحل ({{ (product.plan_steps | length) if product.plan_steps else product.total_steps }})</button>
   <button onclick="opentab(event, 'events')" id="tab-events">رویدادها ({{ product.event_count }})</button>
   <button onclick="opentab(event, 'packets')" id="tab-packets">پکت‌های CAN ({{ product.packet_count }})</button>
   <button onclick="opentab(event, 'placement')" id="tab-placement">جایگاه‌دهی و خطاها</button>
@@ -75,7 +77,7 @@
   <h3>شاخص‌های کلیدی</h3>
   <div class="kpi-grid">
     <div class="kpi"><div class="l">تست‌های تاییدشده</div><div class="v ok">{{ product.pass_tests }}</div></div>
-    <div class="kpi"><div class="l">تست‌های ردشده</div><div class="v bad">{{ product.fail_tests }}</div></div>
+    <div class="kpi"><div class="l">تست‌های ردشده / خارج از رنج</div><div class="v bad">{{ product.fail_tests }}</div></div>
     <div class="kpi"><div class="l">خطاهای سیستمی</div><div class="v bad">{{ product.error_tests }}</div></div>
     <div class="kpi"><div class="l">نرخ تایید</div><div class="v total">{{ "%.1f"|format(product.pass_rate) }}%</div></div>
     <div class="kpi"><div class="l">مدت کل تست</div><div class="v">{{ "%.1f"|format(product.duration_seconds) }} ثانیه</div></div>
@@ -101,7 +103,7 @@
         {% set _ = i+1 %}
         {% endfor %}
       </svg>
-      <div class="small" style="margin-top:6px; text-align:center;">تعداد آیتم‌های هر نوع تست</div>
+      <div class="small" style="margin-top:6px; text-align:center;">تعداد آیست‌های هر نوع تست</div>
     </div>
     <div class="card" style="flex:1; min-width:260px;">
       <h3>شرح نتایج (فارسی)</h3>
@@ -122,6 +124,7 @@
   {% set grouped = product.by_kind %}
   {% if grouped %}
     {% for kind, d in grouped.items() %}
+    {% set items = d['items'] if d.get('items') is not none else [] %}
     <div class="kind-card">
       <div class="kind-header">
         <span>{{ kind }}</span>
@@ -139,7 +142,7 @@
             <th>منتظرشده</th>
             <th>مشاهدشده</th>
             <th>Tolerance</th>
-            <th>限 unteren</th>
+            <th>حد پایین</th>
             <th>حد بالایی</th>
             <th>وضعیت رنج</th>
             <th>وضعیت کلی</th>
@@ -149,7 +152,7 @@
           </tr>
         </thead>
         <tbody>
-        {% for item in d.items %}
+        {% for item in items %}
         <tr>
           <td class="nowrap">{{ item.target }}</td>
           <td class="nowrap">{{ item.expected }}</td>
@@ -163,7 +166,8 @@
           <td class="explain-fa">{{ item.explanation_fa }}</td>
           <td class="center">
             {% if not item.operator_confirmed %}
-            <form class="confirm-form" action="{{ url_for('confirm_result', pid=product.session_id, result_id=item.test_kind + '_' + (item.target|string) + '_' + loop.index|string) }}" method="post" onsubmit="return confirm('آیا مایل به تایید این تست توسط اپراتور هستید؟');">
+            <form class="confirm-form" method="post" action="{{ url_for('confirm_result', pid=product.session_id, result_id=item.test_kind + '_' + (item.target|string) + '_' + loop.index|string) }}" onsubmit="return confirm('آیا مایل به تایید این تست توسط اپراتور هستید؟');">
+              <input type="hidden" name="data_path" value="{{ data_path }}">
               <input type="text" name="operator_name" value="{{ product.operator }}" placeholder="نام اپراتور">
               <button type="submit" class="button ghost" style="padding:4px 8px;">تایید</button>
             </form>
@@ -186,7 +190,7 @@
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th>ترتیب</th><th>شناسه مرحله</th><th>نوع</th><th>هدف</th><th>منتظرشده</th><th>Tolerance</th><th>액شن</th><th>مشاهدشده</th><th>زمان نسبت به شروع (ms)</th><th>پکت منبع</th>
+        <th>ترتیب</th><th>شناسه مرحله</th><th>نوع</th><th>هدف</th><th>منتظرشده</th><th>Tolerance</th><th>اکشن</th><th>مشاهدشده</th><th>زمان نسبت به شروع (ms)</th><th>پکت منبع</th>
       </tr></thead>
       <tbody>
       {% for s in product.plan_steps %}
@@ -212,7 +216,7 @@
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th>زمان</th><th>نوع رویداد</th><th>شناسه (identifier)</th><th>هدف</th><th>منتظرشده</th><th>مرحله تست</th><th>پکت</th>
+        <th>زمان (شمسی)</th><th>نوع رویداد</th><th>شناسه (identifier)</th><th>هدف</th><th>منتظرشده</th><th>مرحله تست</th><th>پکت</th>
       </tr></thead>
       <tbody>
       {% for e in product.events %}
@@ -235,7 +239,7 @@
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th>زمان دریافت</th><th>مبدا IP:پورت</th><th>مقصد IP:پورت</th><th>پديو (hex)</th><th>رابطه</th>
+        <th>زمان دریافت (شمسی)</th><th>مبدا IP:پورت</th><th>مقصد IP:پورت</th><th>پديو (hex)</th><th>رابطه</th>
       </tr></thead>
       <tbody>
       {% for p in product.packets %}

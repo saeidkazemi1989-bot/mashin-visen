@@ -6,12 +6,12 @@
 اجرای این فایل:
     python build_exe.py
 """
-import PyInstaller.__main__
+import sys
 import os
+import PyInstaller.__main__
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
-import sys
 pyinstaller_args = [
     os.path.join(BASE, "app.py"),
     "--name=Mashin-Visen_Dashboard",
@@ -22,6 +22,8 @@ pyinstaller_args = [
     "--hidden-import=flask",
     "--hidden-import=openpyxl",
     "--hidden-import=pandas",
+    "--hidden-import=jdatetime",
+    "--hidden-import=jalali_core",
     "--clean",
     "--noconfirm",
 ]

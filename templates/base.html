@@ -16,9 +16,11 @@
     </div>
     <nav>
       <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint=='dashboard' %}active{% endif %}">داشبورد</a>
-      <a href="{{ url_for('product_list') }}" class="{% if request.endpoint=='product_list' %}active{% endif %}">لیست محصولات تست شده</a>
-      <a href="{{ url_for('create_product') }}" class="{% if request.endpoint=='create_product' %}active{% endif %}">ثبت محصول تستی جدید</a>
+      <a href="{{ url_for('product_list') }}" class="{% if request.endpoint=='product_list' %}active{% endif %}">لیست محصولات</a>
     </nav>
+    <div style="margin-left:auto; font-size:12px; color:var(--muted);">
+      مسیر داده: <span id="dataPathDisplay">{{ data_path or 'تنظیم نشده' }}</span>
+    </div>
   </div>
 </header>
 
@@ -35,7 +37,7 @@
 </div>
 
 <footer style="margin: 40px 0 20px; color: var(--muted); font-size: 12px; text-align: center;">
-  سامانه گزارشگاری تست عملکردی لامپ‌های شসویی توسط ماشین ویژن (AI) &nbsp;|&nbsp; خط تولید أمام‌پانل خودرو
+  سامانه گزارشگاری تست عملکردی لامپ‌های شاسوی توسط ماشین ویژن (AI) &nbsp;|&nbsp; تاریخ‌ها به charming شمسی
 </footer>
 </body>
 </html>

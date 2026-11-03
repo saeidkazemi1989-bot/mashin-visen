@@ -1,156 +1,175 @@
 {% extends "base.html" %}
 {% block extra_head %}
 <style>
-  .hero{ background: linear-gradient(135deg, #eff6ff 0%, #f1f5f9 100%); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 22px; }
-  .hero h1{ margin: 0 0 6px; font-size: 24px; }
-  .hero p{ margin: 0; color: var(--muted); }
+  .filter-bar{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:20px; display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; align-items:end; }
+  .filter-bar .fgroup{ display:flex; flex-direction:column; gap:6px; }
+  .filter-bar label{ font-size:12px; font-weight:700; color:var(--muted); margin:0; }
+  .filter-bar .btn-row{ display:flex; gap:8px; align-items:end; }
+  .path-box{ background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:12px; color:var(--muted); word-break:break-all; }
+  .path-box input{ width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background:#fff; font-size:12px; }
+  .hero{ background: linear-gradient(135deg, #eff6ff 0%, #f1f5f9 100%); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+  .hero h1{ margin: 0 0 8px; font-size: 22px; }
+  .hero p{ margin: 0; color: var(--muted); font-size: 13px; }
   .chip{ display: inline-block; padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: 700; margin-left: 8px; }
   .chip.ok{ background: #ecfdf5; color: var(--success); border: 1px solid #bbf7d0; }
   .chip.bad{ background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
   .chip.run{ background: #fffbeb; color: var(--warning); border: 1px solid #fde68a; }
   .two{ display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
   @media (max-width: 900px){ .two{ grid-template-columns: 1fr; } }
+  .daily-chart{ min-height: 240px; }
+  .empty{ text-align: center; padding: 40px; color: var(--muted); }
+  .empty .ic{ font-size: 36px; margin-bottom: 10px; }
 </style>
 {% endblock %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1>داشبورد گزارشگاری</h1>
-    <p class="small">خلاصه‌ای از تست‌های عملکردی ماشین ویژن لامپ‌های شاسی (앞‌پانل)</p>
-  </div>
-  <div class="actions">
-    <a href="{{ url_for('create_product') }}" class="button">ثبت محصول تستی جدید</a>
-    <a href="{{ url_for('product_list') }}" class="button ghost">همه محصولات</a>
-  </div>
+
+<div class="path-box">
+  <form method="post" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:10px;">
+    <label>📁 مسیر پوشه داده‌های تست (شبکه یا محلی):</label>
+    <input name="data_path" value="{{ data_path or '' }}" placeholder="مثلاً \\서버\share\test_data یا D:\AI_SharpVision_v5.1.0\runs">
+    <div class="btn-row">
+      <button type="submit" class="button">بارگذاری داده‌ها از این مسیر</button>
+      <a href="{{ url_for('dashboard') }}" class="button ghost">بازنشانی</a>
+    </div>
+    <div class="help">اگر مسیر خالی باشد، هیچ داده‌ای نمایش داده نمی‌شود. مسیر می‌تواند یک share شبکه،奈س یا پوشه محلی باشد.</div>
+  </form>
 </div>
 
-<!-- Current session hero -->
-{% if current %}
-<div class="hero">
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
-    <div>
-      <h1>جلسه تست جاری · {{ current.session_id }}</h1>
-      <p>
-        <span><b>محصول:</b> {{ current.product_name or current.product_id }} (رِوِژن {{ current.product_revision }})</span>
-        &nbsp;|&nbsp;
-        <span><b>اپراتور:</b> {{ current.operator }}</span>
-        &nbsp;|&nbsp;
-        <span><b>برنامه تست:</b> {{ current.plan_name }}</span>
-      </p>
-      <p>
-        <span><b>شروع:</b> {{ current.started_at_iso }}</span>
-        &nbsp;|&nbsp;
-        <span><b>اتمام:</b> {{ current.completed_at_iso }}</span>
-        &nbsp;|&nbsp;
-        <span><b>مدت:</b> {{ current.duration_seconds }} ثانیه</span>
-      </p>
-    </div>
-    <div style="text-align:left;">
-      <span class="chip {{ 'ok' if current.outcome_accepted else 'bad' }}">
-        {{ 'تاییدشده (PASS)' if current.outcome_accepted else 'ردشده/خطا' }}
-      </span>
-    </div>
-  </div>
-  <div style="margin-top:14px; display:flex; gap:12px; flex-wrap:wrap;">
-    <a href="{{ url_for('product_detail', pid=current.session_id) }}" class="button">مشاهده جزئیات این محصول</a>
-    {% if not current.archived %}
-    <form action="{{ url_for('create_from_current') }}" method="post" style="display:inline;" onsubmit="return confirm('آیا مایل به ذخیره این جلسه به عنوان یک محصول تستی در پوشه مجزا هستید؟');">
-      <button type="submit" class="button">ذخیره در پوشه محصول جدید</button>
-    </form>
-    {% else %}
-    <span class="badge ready">ذخیره شده در پوشه محصول</span>
-    {% endif %}
-  </div>
-</div>
-{% endif %}
+{% if not data_path %}
+<div class="empty"><div class="ic">📂</div><div>لطفاً مسیر پوشه داده‌های تست را در بالا وارد کنید.</div></div>
+{% else %}
 
 <!-- KPIs -->
 <div class="kpi-grid">
   <div class="kpi"><div class="l">تعداد محصولات تست شده</div><div class="v total">{{ kpis.total_products }}</div></div>
   <div class="kpi"><div class="l">نرخ تایید کلی</div><div class="v {{ 'ok' if kpis.pass_rate>=95 else 'bad' }}">{{ "%.1f"|format(kpis.pass_rate) }}%</div></div>
   <div class="kpi"><div class="l">تعداد کل تست‌ها</div><div class="v">{{ kpis.total_tests }}</div></div>
-  <div class="kpi"><div class="l">تست‌های تاییدشده</div><div class="v ok">{{ kpis.pass_tests }}</div></div>
-  <div class="kpi"><div class="l">تست‌های رد/خطا</div><div class="v bad">{{ kpis.fail_tests }}</div></div>
+  <div class="kpi"><div class="l">تست‌های تاییدشده (OK)</div><div class="v ok">{{ kpis.pass_tests }}</div></div>
+  <div class="kpi"><div class="l">تست‌های خارج از رنج / رد</div><div class="v bad">{{ kpis.fail_tests }}</div></div>
+  <div class="kpi"><div class="l">خطاهای سیستمی</div><div class="v bad">{{ kpis.error_tests }}</div></div>
   <div class="kpi"><div class="l">میانگین مدت تست</div><div class="v">{{ "%.1f"|format(kpis.avg_duration) }} ثانیه</div></div>
 </div>
 
 <div class="two">
+  <div class="card daily-chart">
+    <div class="chart-title">روند روزانه تست‌ها (شمسی)</div>
+    <svg viewBox="0 0 700 240" role="img" aria-label="daily trend">
+      <line x1="60" y1="190" x2="660" y2="190" stroke="#cbd5e1" stroke-width="2"/>
+      <line x1="60" y1="190" x2="60" y2="30" stroke="#cbd5e1" stroke-width="2"/>
+      {% set days = kpis.daily %}
+      {% set maxv = (days | map(attribute='total') | max) if days else 1 %}
+      {% set step = 600 / (days|length - 1) if days|length > 1 else 0 %}
+      {% set pts = [] %}
+      {% for i, d in enumerate(days) %}
+        {% set x = 60 + i * step %}
+        {% set y = 190 - (d.total / maxv) * 150 %}
+        {% set _ = pts.append([x, y]) %}
+        <circle cx="{{ x }}" cy="{{ y }}" r="4" fill="var(--primary)"/>
+        <text x="{{ x }}" y="215" text-anchor="middle" font-size="11" fill="#64748b">{{ d.day }}</text>
+        {% if i>0 %}
+        <line x1="{{ pts[i-1][0] }}" y1="{{ pts[i-1][1] }}" x2="{{ x }}" y2="{{ y }}" stroke="var(--primary)" stroke-width="3" stroke-linecap="round"/>
+        {% endif %}
+      {% endfor %}
+      <text x="30" y="110" text-anchor="middle" font-size="12" fill="#64748b" transform="rotate(-90 30,110)">تعداد تست</text>
+    </svg>
+    <div class="small" style="margin-top:6px; text-align:center;">تعداد تست‌های روزانه بر اساس تاریخ شروع (شمسی)</div>
+  </div>
+
   <div class="card">
-    <div class="chart-title">توزیع نتایج تست (تاییدشده vs ردشده)</div>
+    <div class="chart-title">توزیع نتایج تست</div>
     <svg viewBox="0 0 220 220" role="img" aria-label="donut">
       <circle cx="110" cy="110" r="92" stroke="#e2e8f0" stroke-width="22" fill="none"/>
       <path d="{{ donut_path }}" fill="none" stroke="{{ donut_color }}" stroke-width="22" stroke-linecap="round"/>
       <text x="110" y="118" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a">{{ "%.0f"|format(donut_pct) }}%</text>
       <text x="110" y="140" text-anchor="middle" font-size="12" fill="#64748b">تاییدشده</text>
     </svg>
-    <div class="small" style="margin-top:6px; text-align:center;">ردشده: {{ kpis.fail_tests }} · تاییدشده: {{ kpis.pass_tests }} · از کل {{ kpis.total_tests }}</div>
+    <div class="small" style="margin-top:6px; text-align:center;">رد: {{ kpis.fail_tests }} · تایید: {{ kpis.pass_tests }} · از کل {{ kpis.total_tests }}</div>
   </div>
+</div>
 
-  <div class="card">
-    <div class="chart-title">نتایج بر اساس نوع تست</div>
-    <div style="display:flex; flex-direction:column; gap:8px;">
-      {% for kind, d in kpis.by_kind.items() %}
-      <div style="display:flex; flex-direction:column; gap:4px;">
-        <div style="display:flex; justify-content:space-between; font-size:13px;">
-          <span>{{ kind }}</span><span>{{ d.pass }} / {{ d.total }} تایید</span>
-        </div>
-        <div style="background:#e2e8f0; height:10px; border-radius:6px; overflow:hidden;">
-          <div style="background:var(--primary); width: {{ d.pass and (d.pass*100//d.total) or 0 }}%; height:10px;"></div>
-        </div>
+<div class="card">
+  <div class="chart-title">تفکیک بر اساس نوع تست</div>
+  <div style="display:flex; flex-direction:column; gap:8px;">
+    {% for kind, d in kpis.by_kind.items() %}
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <div style="display:flex; justify-content:space-between; font-size:13px;">
+        <span>{{ kind }}</span><span>{{ d.pass }} / {{ d.total }} تایید</span>
       </div>
-      {% endfor %}
+      <div style="background:#e2e8f0; height:10px; border-radius:6px; overflow:hidden;">
+        <div style="background:var(--primary); width: {{ d.pass and (d.pass*100//d.total) or 0 }}%; height:10px;"></div>
+      </div>
     </div>
+    {% endfor %}
   </div>
 </div>
 
-<div class="card">
-  <div class="chart-title">تست‌ها بر حسب روز</div>
-  <svg viewBox="0 0 700 260" role="img" aria-label="daily tests">
-    <line x1="60" y1="210" x2="660" y2="210" stroke="#cbd5e1" stroke-width="2"/>
-    <line x1="60" y1="210" x2="60" y2="40" stroke="#cbd5e1" stroke-width="2"/>
-    {% set days = kpis.daily %}
-    {% set maxv = (days | map(attribute='count') | max) if days else 1 %}
-    {% set pts = [] %}
-    {% set step = 600 / (days|length - 1) if days|length > 1 else 0 %}
-    {% for i, d in enumerate(days) %}
-      {% set x = 60 + i * step %}
-      {% set y = 210 - (d.count / maxv) * 170 %}
-      {% set _ = pts.append([x, y]) %}
-      <circle cx="{{ x }}" cy="{{ y }}" r="4" fill="var(--primary)"/>
-      <text x="{{ x }}" y="230" text-anchor="middle" font-size="11" fill="#64748b">{{ d.day }}</text>
-      {% if i>0 %}
-      <line x1="{{ pts[i-1][0] }}" y1="{{ pts[i-1][1] }}" x2="{{ x }}" y2="{{ y }}" stroke="var(--primary)" stroke-width="3" stroke-linecap="round"/>
-      {% endif %}
-    {% endfor %}
-    <text x="30" y="100" text-anchor="middle" font-size="12" fill="#64748b" transform="rotate(-90 30,100)">تعداد تست</text>
-  </svg>
-  <div class="small" style="margin-top:6px; text-align:center;">تعداد تست‌های اجرا شده در هر روز (بر اساس زمان شروع)</div>
+<!-- فیلتر و جدول محصولات -->
+<div class="filter-bar">
+  <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
+    <label>فیلتر بازه زمانی (شمسی)</label>
+    <div style="display:flex; gap:8px;">
+      <input name="date_from" type="text" value="{{ date_from }}" placeholder="از تاریخ مثل 1405/01/01">
+      <input name="date_to" type="text" value="{{ date_to }}" placeholder="تا تاریخ مثل 1405/12/30">
+    </div>
+  </form>
+
+  <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
+    <label>نوع محصول</label>
+    <input name="product_type" value="{{ product_type_filter }}" placeholder="مثلاً لامپ Shasi">
+  </form>
+
+  <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
+    <label>وضعیت</label>
+    <select name="status" style="padding:6px; border-radius:6px; border:1px solid var(--border);">
+      <option value="">همه</option>
+      <option value="PASS" {% if status_filter=='PASS' %}selected{% endif %}>تاییدشده</option>
+      <option value="FAIL" {% if status_filter=='FAIL' %}selected{% endif %}>رد/خارج از رنج</option>
+    </select>
+  </form>
+
+  <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
+    <label>جستجو (شناسه، محصول، اپراتور)</label>
+    <input name="search" value="{{ search }}" placeholder="جستجو...">
+    <button type="submit" class="button" style="width:auto; padding:6px 14px;">اعمال فیلتر</button>
+    <a href="{{ url_for('dashboard') }}" class="button ghost" style="width:auto; padding:6px 14px;">پاکسازی</a>
+  </form>
 </div>
 
-<!-- Recent products -->
+{% if products %}
 <div class="card">
-  <h3>آخرین محصولات تست شده</h3>
-  {% if recent %}
+  <h3>لیست محصولات تست شده</h3>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>شناسه جلسه</th><th>محصول</th><th>اپراتور</th><th>وضعیت</th><th>تست‌ها (تایید/رد)</th><th>زمان شروع</th><th></th></tr></thead>
+      <thead><tr>
+        <th>شناسه جلسه</th><th>نوع محصول</th><th>نام محصول / رِوِژن</th><th>اپراتور</th><th>تاریخ شروع (شمسی)</th><th>تست‌ها (تایید/رد)</th><th>وضعیت</th><th>عملیات</th>
+      </tr></thead>
       <tbody>
-      {% for p in recent %}
+      {% for p in products %}
       <tr>
         <td class="nowrap">{{ p.session_id }}</td>
-        <td>{{ p.product_name or p.product_id }}</td>
+        <td>{{ p.product_type }}</td>
+        <td>{{ p.product_name or p.product_id }} <span class="small">{{ p.product_revision }}</span></td>
         <td>{{ p.operator }}</td>
-        <td class="center"><span class="badge {{ 'pass' if p.outcome_accepted else 'fail' }}">{{ 'تایید' if p.outcome_accepted else 'رد' }}</span></td>
-        <td class="center">{{ p.pass_tests }}/{{ p.total_tests }}</td>
         <td class="nowrap">{{ p.started_at_iso }}</td>
-        <td class="center"><a href="{{ url_for('product_detail', pid=p.session_id) }}" class="button ghost" style="padding:6px 10px; font-size:12px;">مشاهده</a></td>
+        <td class="center">{{ p.pass_tests }}/{{ p.total_tests }}</td>
+        <td class="center"><span class="badge {{ 'pass' if p.outcome_accepted else 'fail' }}">{{ 'تایید' if p.outcome_accepted else 'رد' }}</span></td>
+        <td class="center">
+          <a href="{{ url_for('product_detail', pid=p.session_id, data_path=data_path) }}" class="button ghost" style="padding:6px 10px; font-size:12px;">مشاهده</a>
+          <a href="{{ url_for('download_excel', pid=p.session_id, data_path=data_path) }}" class="button ghost" style="padding:6px 10px; font-size:12px;">گزارش اکسل</a>
+        </td>
       </tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
-  {% else %}
-  <div class="empty"><div class="ic">📦</div><div>هنوزाध production-محثی ثبت نشده است.</div></div>
-  {% endif %}
 </div>
+{% else %}
+<div class="empty"><div class="ic">📭</div><div>هیچ محصولی با این فیلترها یافت نشد.</div></div>
+{% endif %}
+
+{% endif %}
 {% endblock %}
