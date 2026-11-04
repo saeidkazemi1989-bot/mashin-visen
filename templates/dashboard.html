@@ -53,19 +53,19 @@
 <div class="two">
   <div class="card daily-chart">
     <div class="chart-title">روند روزانه تست‌ها (شمسی)</div>
-    <svg viewBox="0 0 700 240" role="img" aria-label="daily trend">
+    <svg viewBox="0 0 700 260" role="img" aria-label="daily trend">
       <line x1="60" y1="190" x2="660" y2="190" stroke="#cbd5e1" stroke-width="2"/>
       <line x1="60" y1="190" x2="60" y2="30" stroke="#cbd5e1" stroke-width="2"/>
       {% set days = kpis.daily %}
       {% set maxv = (days | map(attribute='total') | max) if days else 1 %}
-      {% set step = 600 / (days|length - 1) if days|length > 1 else 0 %}
+      {% set step = 580 / (days|length - 1) if days|length > 1 else 0 %}
       {% set pts = [] %}
       {% for i, d in enumerate(days) %}
         {% set x = 60 + i * step %}
         {% set y = 190 - (d.total / maxv) * 150 %}
         {% set _ = pts.append([x, y]) %}
         <circle cx="{{ x }}" cy="{{ y }}" r="4" fill="var(--primary)"/>
-        <text x="{{ x }}" y="215" text-anchor="middle" font-size="11" fill="#64748b">{{ d.day }}</text>
+        <text x="{{ x }}" y="225" text-anchor="middle" font-size="11" fill="#64748b">{{ d.day }}</text>
         {% if i>0 %}
         <line x1="{{ pts[i-1][0] }}" y1="{{ pts[i-1][1] }}" x2="{{ x }}" y2="{{ y }}" stroke="var(--primary)" stroke-width="3" stroke-linecap="round"/>
         {% endif %}
