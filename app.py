@@ -257,7 +257,7 @@ def build_product_summary(session, results, events, packets, test_plan, placemen
         "operator": session.get("operator"),
         "product_id": ctx.get("product_id"),
         "product_name": ctx.get("product_name"),
-        "product_type": ctx.get("product_name") or ctx.get("product_id") or session.get("product_type") or "تعریف نشده",
+        "product_type": ctx.get("product_type") or ctx.get("product_name") or ctx.get("product_id") or session.get("product_type") or "نامشخص",
         "product_revision": ctx.get("product_revision"),
         "test_plan_id": ctx.get("test_plan_id") or tp.get("plan_id"),
         "test_plan_revision": ctx.get("test_plan_revision") or tp.get("plan_revision"),
