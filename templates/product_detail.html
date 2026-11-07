@@ -1,73 +1,76 @@
 {% extends "base.html" %}
 {% block extra_head %}
 <style>
-  .tabpanel table{ font-size: 12.5px; }
-  .badge-group{ display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 700; border: 1px solid var(--border); }
-  .wrap{ white-space: pre-wrap; word-break: break-all; font-family: Consolas, monospace; font-size: 11.5px; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid var(--border); max-width: 100%; overflow: auto; }
-  .hex{ color: #0f766e; font-weight: 700; }
-  .status-col .pass{ color: var(--success); font-weight: 700; }
-  .status-col .fail{ color: var(--danger); font-weight: 700; }
-  .kv-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
-  .kv-item{ background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
-  .kv-item .k{ font-size: 12px; color: var(--muted); display: block; }
-  .kv-item .v{ font-size: 14px; font-weight: 700; margin-top: 3px; word-break: break-all; }
-  .explain-fa{ direction: rtl; color: #334155; font-style: italic; }
-  .range-badge{ font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 10px; }
-  .range-ok{ background: #ecfdf5; color: var(--success); border: 1px solid #bbf7d0; }
-  .range-out{ background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
-  .range-na{ background: #f1f5f9; color: var(--muted); border: 1px solid #cbd5e1; }
-  .kind-card{ border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; background: #fff; overflow: hidden; }
-  .kind-header{ padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid var(--border); font-weight: 800; color: var(--text); display:flex; justify-content:space-between; align-items:center; }
-  .kind-stats span{ margin-left: 10px; font-size: 12.5px; }
-  .kind-table{ font-size: 12px; }
-  .kind-table th, .kind-table td{ padding: 7px 10px; border-bottom: 1px solid #f1f5f9; text-align: right; }
+  .tabpanel table{ font-size: 12px; }
+  .badge-group{ display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 800; border: 1px solid var(--border); }
+  .wrap{ white-space: pre-wrap; word-break: break-all; font-family: Consolas, monospace; font-size: 11px; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid var(--border); max-width: 100%; overflow: auto; }
+  .hex{ color: #0f766e; font-weight: 800; }
+  .status-col .pass{ color: var(--success); font-weight: 800; }
+  .status-col .fail{ color: var(--danger); font-weight: 800; }
+  .kv-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .kv-item{ background: var(--gray-50); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  .kv-item .k{ font-size: 11.5px; color: var(--muted); display: block; font-weight: 800; }
+  .kv-item .v{ font-size: 13px; font-weight: 800; margin-top: 3px; word-break: break-all; color: var(--text); }
+  .explain-fa{ direction: rtl; color: var(--gray-700); font-style: italic; font-size: 12px; }
+  .range-badge{ font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 10px; border: 1px solid transparent; }
+  .range-ok{ background: #ecfdf5; color: var(--success); border-color: #bbf7d0; }
+  .range-out{ background: #fef2f2; color: var(--danger); border-color: #fecaca; }
+  .range-na{ background: #f1f5f9; color: var(--muted); border-color: #cbd5e1; }
+  .kind-card{ border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; background: var(--white); overflow: hidden; box-shadow: var(--shadow); }
+  .kind-header{ padding: 10px 16px; background: var(--gray-50); border-bottom: 1px solid var(--border); font-weight: 800; color: var(--brand); display:flex; justify-content:space-between; align-items:center; }
+  .kind-stats span{ margin-left: 10px; font-size: 12px; font-weight: 800; }
+  .kind-table{ font-size: 11.5px; }
+  .kind-table th, .kind-table td{ padding: 7px 10px; border-bottom: 1px solid var(--gray-100); text-align: right; }
   .confirm-form{ display:inline; margin-left: 8px; }
-  .confirm-form input{ width: auto; display: inline-block; padding: 6px 10px; font-size: 12px; }
+  .confirm-form input{ width: auto; display: inline-block; padding: 6px 10px; font-size: 12px; border-radius: 6px; }
   .confirm-form button{ padding: 6px 12px; font-size: 12px; margin-left: 4px; }
   .back-link{ margin-bottom: 10px; display: inline-block; }
+  .btn-group{ display:flex; gap:8px; flex-wrap:wrap; }
 </style>
 {% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>جزئیات محصول · {{ product.session_id }}</h1>
-    <p class="small">{{ product.product_name or product.product_id }} · نوع: {{ product.product_type }} · رِوِژن {{ product.product_revision }} · برنامه: {{ product.plan_name }}</p>
+    <h1>📋 جزئیات محصول · {{ product.session_id }}</h1>
+    <p class="subtitle">{{ product.product_name or product.product_id }} · نوع: {{ product.product_type }} · رِوِژن {{ product.product_revision }} · برنامه: {{ product.plan_name }}</p>
   </div>
-  <div class="actions">
+  <div class="actions btn-group">
     <a href="{{ url_for('dashboard', data_path=data_path) }}" class="button ghost">بازگشت به داشبورد</a>
     <a href="{{ url_for('download_excel', pid=product.session_id, data_path=data_path) }}" class="button">دانلود گزارش اکسل</a>
   </div>
 </div>
 
 <!-- Outcome banner -->
-<div class="card" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
-  <div>
-    <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-      <span class="badge {{ 'pass' if product.outcome_accepted else 'fail' }}">{{ 'تاییدشده (PASS)' if product.outcome_accepted else 'ردشده (FAIL)' }}</span>
-      <span class="small">تعداد تست‌ها: {{ product.total_tests }} &bull; تایید: {{ product.pass_tests }} &bull; رد: {{ product.fail_tests }} &bull; خطا: {{ product.error_tests }}</span>
-    </div>
+<div class="card">
+  <div class="card-body" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
     <div>
-      <span class="kv"><b>شروع (شمسی):</b> {{ product.started_at_iso }}</span>
-      <span class="kv" style="margin-left:14px;"><b>اتمام (شمسی):</b> {{ product.completed_at_iso }}</span>
-      <span class="kv" style="margin-left:14px;"><b>مدت:</b> {{ "%.1f"|format(product.duration_seconds) }} ثانیه</span>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+        <span class="badge {{ 'pass' if product.outcome_accepted else 'fail' }}">{{ 'تاییدشده (PASS)' if product.outcome_accepted else 'ردشده (FAIL)' }}</span>
+        <span class="small">تست‌ها: {{ product.total_tests }} &bull; تایید: {{ product.pass_tests }} &bull; رد: {{ product.fail_tests }} &bull; خطا: {{ product.error_tests }}</span>
+      </div>
+      <div>
+        <span class="kv"><b>شروع (شمسی):</b> {{ product.started_at_iso }}</span>
+        <span class="kv" style="margin-left:14px;"><b>اتمام (شمسی):</b> {{ product.completed_at_iso }}</span>
+        <span class="kv" style="margin-left:14px;"><b>مدت:</b> {{ "%.1f"|format(product.duration_seconds) }} ثانیه</span>
+      </div>
     </div>
-  </div>
-  <div class="kv-grid" style="margin-top:10px;">
-    <div class="kv-item"><span class="k">شناسه جلسه</span><span class="v">{{ product.session_id }}</span></div>
-    <div class="kv-item"><span class="k">نوع محصول</span><span class="v">{{ product.product_type }}</span></div>
-    <div class="kv-item"><span class="k">نام محصول</span><span class="v">{{ product.product_name or product.product_id }}</span></div>
-    <div class="kv-item"><span class="k">رِوِژن محصول</span><span class="v">{{ product.product_revision }}</span></div>
-    <div class="kv-item"><span class="k">سریال</span><span class="v">{{ product.product_serial }}</span></div>
-    <div class="kv-item"><span class="k">اپراتور</span><span class="v">{{ product.operator }}</span></div>
-    <div class="kv-item"><span class="k">برنامه تست</span><span class="v">{{ product.plan_name }} ({{ product.plan_id }})</span></div>
-    <div class="kv-item"><span class="k">رِوِژن برنامه</span><span class="v">{{ product.plan_revision }}</span></div>
+    <div class="kv-grid" style="margin-top:10px;">
+      <div class="kv-item"><span class="k">شناسه جلسه</span><span class="v">{{ product.session_id }}</span></div>
+      <div class="kv-item"><span class="k">نوع محصول</span><span class="v">{{ product.product_type }}</span></div>
+      <div class="kv-item"><span class="k">نام محصول</span><span class="v">{{ product.product_name or product.product_id }}</span></div>
+      <div class="kv-item"><span class="k">رِوِژن محصول</span><span class="v">{{ product.product_revision }}</span></div>
+      <div class="kv-item"><span class="k">سریال</span><span class="v">{{ product.product_serial }}</span></div>
+      <div class="kv-item"><span class="k">اپراتور</span><span class="v">{{ product.operator }}</span></div>
+      <div class="kv-item"><span class="k">برنامه تست</span><span class="v">{{ product.plan_name }} ({{ product.plan_id }})</span></div>
+      <div class="kv-item"><span class="k">رِوِژن برنامه</span><span class="v">{{ product.plan_revision }}</span></div>
+    </div>
   </div>
 </div>
 
 <div class="tabs">
   <button onclick="opentab(event, 'summary')" id="tab-summary" class="active">خلاصه و شاخص‌ها</button>
   <button onclick="opentab(event, 'results')" id="tab-results">نتایج تست ({{ product.total_tests }})</button>
-  <button onclick="opentab(event, 'plan')" id="tab-plan">برنامه تست و مراحل ({{ (product.plan_steps | length) if product.plan_steps else product.total_steps }})</button>
+  <button onclick="opentab(event, 'plan')" id="tab-plan">برنامه تست و مراحل</button>
   <button onclick="opentab(event, 'events')" id="tab-events">رویدادها ({{ product.event_count }})</button>
   <button onclick="opentab(event, 'packets')" id="tab-packets">پکت‌های CAN ({{ product.packet_count }})</button>
   <button onclick="opentab(event, 'placement')" id="tab-placement">جایگاه‌دهی و خطاها</button>
@@ -75,21 +78,21 @@
 
 <div id="summary" class="tabpanel active">
   <h3>شاخص‌های کلیدی</h3>
-  <div class="kpi-grid">
+  <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));">
     <div class="kpi"><div class="l">تست‌های تاییدشده</div><div class="v ok">{{ product.pass_tests }}</div></div>
-    <div class="kpi"><div class="l">تست‌های ردشده / خارج از رنج</div><div class="v bad">{{ product.fail_tests }}</div></div>
+    <div class="kpi"><div class="l">تست‌های خارج از رنج / رد</div><div class="v bad">{{ product.fail_tests }}</div></div>
     <div class="kpi"><div class="l">خطاهای سیستمی</div><div class="v bad">{{ product.error_tests }}</div></div>
     <div class="kpi"><div class="l">نرخ تایید</div><div class="v total">{{ "%.1f"|format(product.pass_rate) }}%</div></div>
     <div class="kpi"><div class="l">مدت کل تست</div><div class="v">{{ "%.1f"|format(product.duration_seconds) }} ثانیه</div></div>
     <div class="kpi"><div class="l">تعداد پکت CAN</div><div class="v">{{ product.packet_count }}</div></div>
   </div>
 
-  <div style="display:flex; gap:18px; flex-wrap:wrap;">
-    <div class="chart" style="flex:1; min-width:260px;">
+  <div style="display:flex; gap:20px; flex-wrap:wrap;">
+    <div class="chart" style="flex:1; min-width:300px;">
       <div class="chart-title">توزیع بر اساس نوع تست</div>
       <svg viewBox="0 0 520 300" role="img">
-        <line x1="60" y1="240" x2="500" y2="240" stroke="#cbd5e1" stroke-width="2"/>
-        <line x1="60" y1="240" x2="60" y2="40" stroke="#cbd5e1" stroke-width="2"/>
+        <line x1="60" y1="240" x2="500" y2="240" stroke="#e2e8f0" stroke-width="2"/>
+        <line x1="60" y1="240" x2="60" y2="40" stroke="#e2e8f0" stroke-width="2"/>
         {% set maxv = (product.by_kind.values() | map(attribute='total') | max) if product.by_kind else 1 %}
         {% set nk = product.by_kind | length %}
         {% set step = 440 / nk if nk else 0 %}
@@ -97,18 +100,18 @@
         {% for kind, d in product.by_kind.items() %}
         {% set x = 60 + i * step + step/2 %}
         {% set h = (d.total / maxv) * 180 %}
-        <rect x="{{ x - 26 }}" y="{{ 240 - h }}" width="52" height="{{ h }}" fill="var(--primary)" rx="4"/>
+        <rect x="{{ x - 26 }}" y="{{ 240 - h }}" width="52" height="{{ h }}" fill="var(--accent)" rx="4"/>
         <text x="{{ x }}" y="258" text-anchor="middle" font-size="12" fill="#64748b">{{ kind }}</text>
-        <text x="{{ x }}" y="{{ 236 - h }}" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">{{ d.total }}</text>
+        <text x="{{ x }}" y="{{ 236 - h }}" text-anchor="middle" font-size="12" font-weight="800" fill="#0f172a">{{ d.total }}</text>
         {% set _ = i+1 %}
         {% endfor %}
       </svg>
-      <div class="small" style="margin-top:6px; text-align:center;">تعداد آیست‌های هر نوع تست</div>
+      <div class="small text-center mt-6" style="margin-top:10px;">تعداد آیتم‌های هر نوع تست</div>
     </div>
-    <div class="card" style="flex:1; min-width:260px;">
-      <h3>شرح نتایج (فارسی)</h3>
+    <div class="card" style="flex:1; min-width:280px;">
+      <h3 style="margin-top:0;">شرح نتایج (فارسی)</h3>
       {% if product.examples_fa %}
-      <ul style="padding-right:20px; line-height:1.8;">
+      <ul style="padding-right:20px; line-height:1.8; margin:0;">
       {% for e in product.examples_fa %}
         <li><span class="badge {{ 'pass' if e.status=='PASS' else 'fail' }}">{{ e.status }}</span> <b>{{ e.target }}</b>: <span class="explain-fa">{{ e.explanation }}</span></li>
       {% endfor %}
@@ -169,7 +172,7 @@
             <form class="confirm-form" method="post" action="{{ url_for('confirm_result', pid=product.session_id, result_id=item.test_kind + '_' + (item.target|string) + '_' + loop.index|string) }}" onsubmit="return confirm('آیا مایل به تایید این تست توسط اپراتور هستید؟');">
               <input type="hidden" name="data_path" value="{{ data_path }}">
               <input type="text" name="operator_name" value="{{ product.operator }}" placeholder="نام اپراتور">
-              <button type="submit" class="button ghost" style="padding:4px 8px;">تایید</button>
+              <button type="submit" class="button ghost sm">تایید</button>
             </form>
             {% else %}
             <span class="badge pass">تایید شده</span>
@@ -257,11 +260,11 @@
 </div>
 
 <div id="placement" class="tabpanel">
-  <div style="display:flex; gap:18px; flex-wrap:wrap;">
-    <div class="card" style="flex:1; min-width:300px;">
-      <h3>خطاها</h3>
+  <div style="display:flex; gap:20px; flex-wrap:wrap;">
+    <div class="card" style="flex:1; min-width:320px;">
+      <h3 style="margin-top:0;">خطاها</h3>
       {% if product.errors %}
-      <ul style="padding-right:20px; line-height:1.8;">
+      <ul style="padding-right:20px; line-height:1.8; margin:0;">
       {% for err in product.errors %}
         <li>{{ err }}</li>
       {% endfor %}
@@ -270,8 +273,8 @@
       <div class="empty" style="padding:20px;"><div class="ic">✅</div><div>هیچ خطایی ثبت نشده است.</div></div>
       {% endif %}
     </div>
-    <div class="card" style="flex:1; min-width:300px;">
-      <h3>جایگاه‌دهی تصویر (placement)</h3>
+    <div class="card" style="flex:1; min-width:320px;">
+      <h3 style="margin-top:0;">جایگاه‌دهی تصویر (placement)</h3>
       {% if product.placement %}
       <table class="kv">
         <tr><td>موتور estimate</td><td>{{ product.placement.engine }}</td></tr>
