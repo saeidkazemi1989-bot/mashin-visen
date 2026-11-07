@@ -610,8 +610,13 @@ def build_excel_bytes(product):
 # ---------- routes ----------
 @app.route("/", methods=["GET", "POST"])
 def dashboard():
-    # مسیر داده‌ها از فرم یا متغیر محیطی
-    data_root = request.form.get("data_path") or request.args.get("data_path") or DEFAULT_DATA_PATH
+    # مسیر داده‌ها: اول از فرم POST، سپس از query string، سپس از session، در نهایت DEFAULT
+    data_root = request.form.get("data_path") or request.args.get("data_path") or session.get("data_path") or DEFAULT_DATA_PATH
+
+    # ذخیره در session تا در همه صفحات حفظ شود
+    if data_root:
+        session["data_path"] = data_root
+
     if not data_root:
         flash("لطفاً مسیر پوشه داده‌های تست (شبکه یا محلی) را وارد کنید.", "error")
         return render_template("dashboard.html", data_path="", products=[], kpis={},
@@ -725,14 +730,19 @@ def dashboard():
 
 @app.route("/products")
 def product_list():
-    data_root = request.args.get("data_path") or DEFAULT_DATA_PATH
+    data_root = request.args.get("data_path") or session.get("data_path") or DEFAULT_DATA_PATH
+    # حفظ در session برای صفحه‌های بعدی
+    if data_root:
+        session["data_path"] = data_root
     products = list_products_from_path(data_root) if data_root else []
     return render_template("product_list.html", products=products, data_path=data_root)
 
 
 @app.route("/products/<pid>")
 def product_detail(pid):
-    data_root = request.args.get("data_path") or DEFAULT_DATA_PATH
+    data_root = request.args.get("data_path") or session.get("data_path") or DEFAULT_DATA_PATH
+    if data_root:
+        session["data_path"] = data_root
     product = get_product_from_path(data_root, pid) if data_root else None
     if product is None:
         abort(404)
@@ -741,14 +751,15 @@ def product_detail(pid):
 
 @app.route("/products/<pid>/download/<filename>")
 def download_file(pid, filename):
-    data_root = request.args.get("data_path") or DEFAULT_DATA_PATH
-    # پیدا کردن پوشهprod
+    data_root = request.args.get("data_path") or session.get("data_path") or DEFAULT_DATA_PATH
+    if data_root:
+        session["data_path"] = data_root
     sessions = discover_sessions(data_root) if data_root else []
     target_dir = None
-    for session in sessions:
-        sid = session.get("session_id") or os.path.basename(session.get("_folder", ""))
+    for sess in sessions:
+        sid = sess.get("session_id") or os.path.basename(sess.get("_folder", ""))
         if sid == pid:
-            target_dir = session.get("_folder", "")
+            target_dir = sess.get("_folder", "")
             break
     if not target_dir:
         abort(404)
@@ -760,7 +771,9 @@ def download_file(pid, filename):
 
 @app.route("/products/<pid>/excel")
 def download_excel(pid):
-    data_root = request.args.get("data_path") or DEFAULT_DATA_PATH
+    data_root = request.args.get("data_path") or session.get("data_path") or DEFAULT_DATA_PATH
+    if data_root:
+        session["data_path"] = data_root
     product = get_product_from_path(data_root, pid) if data_root else None
     if product is None:
         abort(404)

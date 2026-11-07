@@ -47,7 +47,7 @@
     <input name="data_path" value="{{ data_path or '' }}" placeholder="مثلاً D:\AI_SharpVision_v5.1.0\runs یا \\سرور\شرکت\داده_تست">
     <div class="btn-row">
       <button type="submit" class="button">بارگذاری داده‌ها از این مسیر</button>
-      <a href="{{ url_for('dashboard') }}" class="button ghost">بازنشانی</a>
+      <a href="{{ url_for('dashboard', data_path=data_path) }}" class="button ghost">بازنشانی</a>
     </div>
     <div class="help">اگر مسیر خالی باشد، هیچ داده‌ای نمایش داده نمی‌شود. مسیر می‌تواند یک پوشه شبکه (Share)، NAS یا پوشه محلی باشد.</div>
   </form>

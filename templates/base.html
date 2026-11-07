@@ -15,8 +15,8 @@
       <span>ماشین ویژن — داشبورد گزارشگاری تست عملکردی</span>
     </div>
     <nav>
-      <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint=='dashboard' %}active{% endif %}">داشبورد</a>
-      <a href="{{ url_for('product_list') }}" class="{% if request.endpoint=='product_list' %}active{% endif %}">لیست محصولات</a>
+      <a href="{{ url_for('dashboard', data_path=data_path) }}" class="{% if request.endpoint=='dashboard' %}active{% endif %}">داشبورد</a>
+      <a href="{{ url_for('product_list', data_path=data_path) }}" class="{% if request.endpoint=='product_list' %}active{% endif %}">لیست محصولات</a>
     </nav>
     <div class="user-area">
       <span>{{ data_path or 'مسیر داده تنظیم نشده' }}</span>
