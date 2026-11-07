@@ -24,6 +24,26 @@
   .confirm-form{ display:inline; margin-left: 8px; }
   .confirm-form input{ width: auto; display: inline-block; padding: 6px 10px; font-size: 12px; border-radius: 6px; }
   .confirm-form button{ padding: 6px 12px; font-size: 12px; margin-left: 4px; }
+
+  /* Gauge chart for observed value within range */
+  .gauge-wrap{ display: flex; flex-direction: column; align-items: center; padding: 20px; background: var(--white); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 20px; box-shadow: var(--shadow); }
+  .gauge-title{ font-weight: 800; color: var(--brand); margin-bottom: 14px; font-size: 14px; }
+  .gauge{ position: relative; width: 260px; height: 130px; overflow: hidden; }
+  .gauge-arc{ position: absolute; top: 60px; left: 0; right: 0; height: 70px; border-radius: 0 0 130px 130px; border: 14px solid #e2e8f0; }
+  .gauge-arc-zone{ position: absolute; top: 60px; left: 0; right: 0; height: 70px; border-radius: 0 0 130px 130px; border: 14px solid transparent; }
+  .gauge-zone-ok{ border-color: #10b981; }
+  .gauge-zone-warn{ border-color: #f59e0b; }
+  .gauge-zone-danger{ border-color: #ef4444; }
+  .gauge-needle{ position: absolute; bottom: 70px; left: 50%; width: 4px; height: 60px; background: var(--brand); transform-origin: bottom center; transform: rotate(-90deg); transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
+  .gauge-needle-cap{ position: absolute; bottom: 66px; left: 50%; width: 16px; height: 16px; background: var(--brand); border-radius: 50%; transform: translateX(-50%); z-index: 11; }
+  .gauge-labels{ position: absolute; top: 150px; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-weight: 700; padding: 0 20px; }
+  .gauge-value{ font-size: 20px; font-weight: 900; color: var(--text); margin-top: 10px; }
+  .gauge-status{ font-size: 13px; font-weight: 800; margin-top: 4px; }
+  .gauge-status.ok{ color: var(--success); }
+  .gauge-status.bad{ color: var(--danger); }
+  .gauge-status.warn{ color: var(--warning); }
+  .gauge-row{ display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+  .gauge-item{ min-width: 260px; }
   .back-link{ margin-bottom: 10px; display: inline-block; }
   .btn-group{ display:flex; gap:8px; flex-wrap:wrap; }
 </style>
@@ -120,6 +140,36 @@
 </div>
 
 <div id="results" class="tabpanel">
+  <!-- نمایش گرافیکی موقعیت عقربه هر تست -->
+  <div class="gauge-row">
+  {% for kind, d in product.by_kind.items() %}
+    {% for item in d['items'] if d.get('items') is not none else [] %}
+    {% if item.test_kind == 'GAUGE' or item.range_status is not none %}
+    <div class="gauge-item">
+      <div class="gauge-wrap">
+        <div class="gauge-title">{{ item.target }} ({{ item.test_kind }})</div>
+        <div class="gauge">
+          <div class="gauge-arc"></div>
+          <div class="gauge-arc-zone gauge-zone-ok" style="transform: rotate(-45deg); transform-origin: bottom center; border-right-color: #10b981;"></div>
+          <div class="gauge-arc-zone gauge-zone-danger" style="transform: rotate(45deg); transform-origin: bottom center; border-left-color: #ef4444;"></div>
+          <div class="gauge-needle" style="transform: rotate({{ (item.range_status == 'OK' and '-45' or item.range_status == 'OUT_OF_RANGE' and '45' or '0') }}deg);"></div>
+          <div class="gauge-needle-cap"></div>
+        </div>
+        <div class="gauge-labels">
+          <span>{{ item.range_low if item.range_low is not none else 'حد پایین' }}</span>
+          <span>{{ item.range_high if item.range_high is not none else 'حد بالایی' }}</span>
+        </div>
+        <div class="gauge-value">{{ item.observed }}</div>
+        <div class="gauge-status {{ 'ok' if item.range_status=='OK' else 'bad' if item.range_status=='OUT_OF_RANGE' else 'warn' }}">
+          {{ 'در رنج مجاز (OK)' if item.range_status=='OK' else 'خارج از رنج (OUT_OF_RANGE)' if item.range_status=='OUT_OF_RANGE' else 'تعریف نشده' }}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  {% endfor %}
+  </div>
+
   {% set grouped = product.by_kind %}
   {% if grouped %}
     {% for kind, d in grouped.items() %}
