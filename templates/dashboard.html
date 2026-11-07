@@ -162,10 +162,12 @@
     </div>
   </form>
   <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
     <label>نوع محصول</label>
     <input name="product_type" value="{{ product_type_filter }}" placeholder="مثلاً جلو آمپر">
   </form>
   <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
     <label>وضعیت</label>
     <select name="status" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
       <option value="">همه وضعیتها</option>
@@ -174,12 +176,13 @@
     </select>
   </form>
   <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
     <label>جستجو (شناسه، محصول، اپراتور)</label>
     <div style="display:flex; gap:8px;">
       <input name="search" value="{{ search }}" placeholder="جستجو...">
       <button type="submit" class="button sm">اعمال فیلتر</button>
     </div>
-    <a href="{{ url_for('dashboard') }}" class="button ghost sm" style="width:auto;">پاکسازی فیلتر</a>
+    <a href="{{ url_for('dashboard', data_path=data_path) }}" class="button ghost sm" style="width:auto;">پاکسازی فیلتر</a>
   </form>
 </div>
 

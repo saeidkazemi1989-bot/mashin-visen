@@ -38,6 +38,7 @@ os.makedirs(PRODUCTS_DIR, exist_ok=True)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "mashin-visen-dev-key")
+app.config["PERMANENT_SESSION_LIFETIME"] = datetime.timedelta(days=7)
 app.jinja_env.globals.update(enumerate=enumerate, zip=zip, len=len)
 
 
