@@ -17,6 +17,26 @@
   .daily-chart-wrap{ min-height: 260px; }
   .empty{ text-align: center; padding: 40px; color: var(--muted); }
   .empty .ic{ font-size: 40px; margin-bottom: 12px; }
+
+  /* HTML Bar Chart - Persian friendly */
+  .bar-chart{ width: 100%; height: 200px; display: flex; align-items: flex-end; gap: 14px; padding: 20px 10px 40px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--white); }
+  .bar{ flex: 1; background: var(--accent); border-radius: 6px 6px 0 0; position: relative; display: flex; align-items: flex-end; justify-content: center; transition: height 0.5s ease; }
+  .bar:hover{ filter: brightness(1.1); }
+  .bar-val{ position: absolute; top: -24px; font-size: 12px; font-weight: 800; color: var(--text); white-space: nowrap; }
+  .bar-label{ writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); font-size: 11.5px; color: var(--muted); font-weight: 700; white-space: nowrap; margin-top: 8px; text-align: center; }
+  .bar-max-line{ position: absolute; top: 0; left: 0; right: 0; height: 1px; background: #e2e8f0; }
+  .bar-y-axis{ position: absolute; left: 8px; top: 20px; bottom: 40px; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; color: var(--muted); text-align: right; width: 30px; }
+
+  .donut-wrap{ display: flex; align-items: center; justify-content: center; gap: 16px; padding: 20px; }
+  .donut-svg{ width: 180px; height: 180px; }
+  .donut-text{ font-size: 26px; font-weight: 900; color: var(--text); }
+  .donut-sub{ font-size: 12px; color: var(--muted); font-weight: 700; }
+
+  .kind-bar{ display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .kind-bar .name{ width: 70px; font-size: 12px; font-weight: 700; color: var(--text); text-align: right; }
+  .kind-bar .track{ flex: 1; height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden; }
+  .kind-bar .fill{ height: 100%; background: var(--accent); border-radius: 5px; }
+  .kind-bar .val{ width: 40px; font-size: 12px; font-weight: 800; color: var(--brand); text-align: left; }
 </style>
 {% endblock %}
 {% block content %}
@@ -83,26 +103,16 @@
       <span class="small">تعداد تست‌های اجرا شده در هر روز</span>
     </div>
     <div class="card-body" style="padding:0;">
-      <div class="chart" style="min-height:240px;">
-        <svg viewBox="0 0 700 260" role="img" aria-label="daily trend">
-          <line x1="60" y1="200" x2="660" y2="200" stroke="#e2e8f0" stroke-width="2"/>
-          <line x1="60" y1="200" x2="60" y2="40" stroke="#e2e8f0" stroke-width="2"/>
-          {% set days = kpis.daily %}
-          {% set maxv = (days | map(attribute='total') | max) if days else 1 %}
-          {% set step = 580 / (days|length - 1) if days|length > 1 else 0 %}
-          {% set pts = [] %}
-          {% for i, d in enumerate(days) %}
-            {% set x = 60 + i * step %}
-            {% set y = 200 - (d.total / maxv) * 150 %}
-            {% set _ = pts.append([x, y]) %}
-            <circle cx="{{ x }}" cy="{{ y }}" r="4.5" fill="var(--accent)"/>
-            <text x="{{ x }}" y="235" text-anchor="middle" font-size="11" fill="#64748b">{{ d.day }}</text>
-            {% if i>0 %}
-            <line x1="{{ pts[i-1][0] }}" y1="{{ pts[i-1][1] }}" x2="{{ x }}" y2="{{ y }}" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
-            {% endif %}
-          {% endfor %}
-          <text x="30" y="120" text-anchor="middle" font-size="12" fill="#64748b" transform="rotate(-90 30,120)">تعداد تست</text>
-        </svg>
+      <div class="bar-chart">
+        {% set days = kpis.daily %}
+        {% set maxv = (days | map(attribute='total') | max) if days else 1 %}
+        {% for d in days %}
+        {% set pct = (d.total / maxv) * 100 if maxv else 0 %}
+        <div class="bar" style="height: {{ pct }}%;">
+          <span class="bar-val">{{ d.total }}</span>
+        </div>
+        <div class="bar-label">{{ d.day }}</div>
+        {% endfor %}
       </div>
     </div>
   </div>
@@ -113,12 +123,10 @@
       <span class="small">تاییدشده vs ردشده</span>
     </div>
     <div class="card-body" style="padding:0; display:flex; align-items:center; justify-content:center;">
-      <svg viewBox="0 0 240 240" role="img" aria-label="donut" style="max-width:200px;">
-        <circle cx="120" cy="120" r="98" stroke="#e2e8f0" stroke-width="24" fill="none"/>
-        <path d="{{ donut_path }}" fill="none" stroke="{{ donut_color }}" stroke-width="24" stroke-linecap="round"/>
-        <text x="120" y="128" text-anchor="middle" font-size="22" font-weight="900" fill="#0f172a">{{ "%.0f"|format(donut_pct) }}%</text>
-        <text x="120" y="152" text-anchor="middle" font-size="12" fill="#64748b">تاییدشده</text>
-      </svg>
+      <div class="donut-wrap">
+        <div class="donut-text">{{ "%.0f"|format(donut_pct) }}%</div>
+        <div class="donut-sub">تاییدشده</div>
+      </div>
     </div>
     <div class="small text-center mt-6" style="margin-top:10px;">رد: {{ kpis.fail_tests }} · تایید: {{ kpis.pass_tests }} · از کل {{ kpis.total_tests }}</div>
   </div>
@@ -130,15 +138,13 @@
     <span class="small">LOGO / GAUGE / LCD</span>
   </div>
   <div class="card-body">
-    <div style="display:flex; flex-direction:column; gap:8px;">
+    <div style="padding: 16px;">
       {% for kind, d in kpis.by_kind.items() %}
-      <div style="display:flex; flex-direction:column; gap:5px;">
-        <div style="display:flex; justify-content:space-between; font-size:12.5px;">
-          <span>{{ kind }}</span><span>{{ d.pass }} / {{ d.total }} تایید</span>
-        </div>
-        <div style="background:#e2e8f0; height:8px; border-radius:4px; overflow:hidden;">
-          <div style="background:var(--accent); width: {{ d.pass and (d.pass*100//d.total) or 0 }}%; height:8px;"></div>
-        </div>
+      {% set pct = d.pass and (d.pass*100//d.total) or 0 %}
+      <div class="kind-bar">
+        <div class="name">{{ kind }}</div>
+        <div class="track"><div class="fill" style="width: {{ pct }}%;"></div></div>
+        <div class="val">{{ d.pass }} / {{ d.total }}</div>
       </div>
       {% endfor %}
     </div>

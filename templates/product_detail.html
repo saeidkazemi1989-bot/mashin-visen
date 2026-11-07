@@ -88,25 +88,21 @@
   </div>
 
   <div style="display:flex; gap:20px; flex-wrap:wrap;">
-    <div class="chart" style="flex:1; min-width:300px;">
-      <div class="chart-title">توزیع بر اساس نوع تست</div>
-      <svg viewBox="0 0 520 300" role="img">
-        <line x1="60" y1="240" x2="500" y2="240" stroke="#e2e8f0" stroke-width="2"/>
-        <line x1="60" y1="240" x2="60" y2="40" stroke="#e2e8f0" stroke-width="2"/>
-        {% set maxv = (product.by_kind.values() | map(attribute='total') | max) if product.by_kind else 1 %}
-        {% set nk = product.by_kind | length %}
-        {% set step = 440 / nk if nk else 0 %}
-        {% set i = 0 %}
+    <div class="card" style="flex:1; min-width:300px;">
+      <div class="card-head">
+        <span>توزیع بر اساس نوع تست</span>
+        <span class="small">تعداد آیست‌های هر نوع تست</span>
+      </div>
+      <div class="card-body" style="padding: 16px;">
         {% for kind, d in product.by_kind.items() %}
-        {% set x = 60 + i * step + step/2 %}
-        {% set h = (d.total / maxv) * 180 %}
-        <rect x="{{ x - 26 }}" y="{{ 240 - h }}" width="52" height="{{ h }}" fill="var(--accent)" rx="4"/>
-        <text x="{{ x }}" y="258" text-anchor="middle" font-size="12" fill="#64748b">{{ kind }}</text>
-        <text x="{{ x }}" y="{{ 236 - h }}" text-anchor="middle" font-size="12" font-weight="800" fill="#0f172a">{{ d.total }}</text>
-        {% set _ = i+1 %}
+        {% set pct = d.pass and (d.pass*100//d.total) or 0 %}
+        <div class="kind-bar">
+          <div class="name">{{ kind }}</div>
+          <div class="track"><div class="fill" style="width: {{ pct }}%;"></div></div>
+          <div class="val">{{ d.pass }} / {{ d.total }}</div>
+        </div>
         {% endfor %}
-      </svg>
-      <div class="small text-center mt-6" style="margin-top:10px;">تعداد آیتم‌های هر نوع تست</div>
+      </div>
     </div>
     <div class="card" style="flex:1; min-width:280px;">
       <h3 style="margin-top:0;">شرح نتایج (فارسی)</h3>
