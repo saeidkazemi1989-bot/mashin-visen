@@ -620,6 +620,11 @@ def dashboard():
                                recent=[], date_from="", date_to="", product_type_filter="",
                                status_filter="", search="")
 
+    # پس از بارگذاری داده‌ها (POST)، به همان صفحه redirected می‌شویم تا data_path در URL بماند
+    # و فیلترها و رفرش صفحه باعث از بین رفتن داده‌ها نشود
+    if request.method == "POST":
+        return redirect(url_for("dashboard", data_path=data_root))
+
     products = list_products_from_path(data_root)
 
     # فیلترها
