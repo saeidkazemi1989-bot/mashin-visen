@@ -143,7 +143,8 @@
   <!-- نمایش گرافیکی موقعیت عقربه هر تست -->
   <div class="gauge-row">
   {% for kind, d in product.by_kind.items() %}
-    {% for item in d['items'] if d.get('items') is not none else [] %}
+    {% set items = d.get('items') or [] %}
+    {% for item in items %}
     {% if item.test_kind == 'GAUGE' or item.range_status is not none %}
     <div class="gauge-item">
       <div class="gauge-wrap">
@@ -173,7 +174,7 @@
   {% set grouped = product.by_kind %}
   {% if grouped %}
     {% for kind, d in grouped.items() %}
-    {% set items = d['items'] if d.get('items') is not none else [] %}
+    {% set items = d.get('items') or [] %}
     <div class="kind-card">
       <div class="kind-header">
         <span>{{ kind }}</span>
