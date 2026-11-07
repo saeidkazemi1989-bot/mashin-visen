@@ -25,6 +25,7 @@ from flask import (
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.chart import PieChart, Reference
 import jdatetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -391,66 +392,161 @@ def _write_sheet(ws, title, headers, rows, date_cols=()):
     ws.freeze_panes = ws.cell(row=hr + 1, column=1)
 
 
+def _range_bar(observed, low, high):
+    """ساخت نوار بصری برای نشان دادن جایگاه مقدار مشاهدشده در محدوده مجاز.
+    نمایش: |===|●|===|  که ● جایگاه مقدار است."""
+    if observed is None or low is None or high is None:
+        return "—"
+    try:
+        obs = float(observed)
+        lo = float(low)
+        hi = float(high)
+    except (TypeError, ValueError):
+        return "—"
+    span = hi - lo
+    if span <= 0:
+        return "—"
+    # позиции 0 تا 20 کاراکتر
+    pos = int((obs - lo) / span * 20)
+    pos = max(0, min(20, pos))
+    bar = "─" * pos + "●" + "─" * (20 - pos)
+    return f"[{bar}]"
+
+
+def _status_fill(cell, status):
+    """رنگ‌بندی خودکار سلول وضعیت."""
+    if status == "PASS" or status == "OK":
+        cell.fill = PatternFill("solid", fgColor="C6EFCE")  # سبز روشنی
+        cell.font = Font(bold=True, color="006100", size=11, name="Tahoma")
+    elif status == "FAIL" or status == "OUT_OF_RANGE":
+        cell.fill = PatternFill("solid", fgColor="FFC7CE")  # قرمز روشنی
+        cell.font = Font(bold=True, color="9C0006", size=11, name="Tahoma")
+    else:
+        cell.fill = PatternFill("solid", fgColor="FFEB9C")  # زرد
+        cell.font = Font(bold=True, color="9C6500", size=11, name="Tahoma")
+
+
 def build_excel_bytes(product):
     wb = Workbook()
     wb.remove(wb.active)
 
-    # Sheet 1: Summary
-    ws = wb.create_sheet("خلاصه")
-    ws.cell(row=1, column=1, value="گزارش تست محصول — ماشین ویژن").font = Font(
-        bold=True, size=15, color="1D4ED8", name="Tahoma")
-    summary_rows = [
-        ["شناسه جلسه", product.get("session_id")],
-        ["محصول", product.get("product_name") or product.get("product_id")],
-        ["نوع محصول", product.get("product_type")],
-        ["رِوِژن محصول", product.get("product_revision")],
-        ["شمارهٔ سريال", product.get("product_serial")],
-        ["اپراتور", product.get("operator")],
-        ["برنامه تست", product.get("plan_name")],
-        ["شناسه برنامه", product.get("plan_id")],
-        ["رِوِژن برنامه", product.get("plan_revision")],
-        ["حالت برنامه", product.get("test_plan_mode")],
-        ["وضعیت نهایی", "تاییدشده (PASS)" if product.get("outcome_accepted") else "ردشده/خطا (FAIL)"],
-        ["تعداد کل تست‌ها", product.get("total_tests")],
-        ["تست‌های تاییدشده", product.get("pass_tests")],
-        ["تست‌های ردشده", product.get("fail_tests")],
-        ["خطاهای سیستمی", product.get("error_tests")],
-        ["نرخ تایید", f'{product.get("pass_rate", 0):.1f}%'],
-        ["زمان شروع (شمسی)", product.get("started_at_iso")],
-        ["زمان اتمام (شمسی)", product.get("completed_at_iso")],
-        ["مدت تست (ثانیه)", f'{product.get("duration_seconds", 0):.2f}'],
-        ["تعداد پکت CAN", product.get("packet_count")],
-        ["تعداد رویداد", product.get("event_count")],
+    # ========== Sheet 1: داشبورد خلاصه (بصری و در یک نگاه قابل فهم) ==========
+    ws = wb.create_sheet("داشبورد خلاصه")
+    ws.sheet_view.showGridLines = False
+
+    # عنوان اصلی
+    ws.merge_cells("A1:H1")
+    c = ws.cell(row=1, column=1, value="گزارش تست محصول — ماشین.Visual (هوش مصنوعی)")
+    c.font = Font(bold=True, size=18, color="1D4ED8", name="Tahoma")
+    c.alignment = Alignment(horizontal="center", vertical="center")
+
+    # اطلاعات محصول
+    info_rows = [
+        ["شناسه جلسه", product.get("session_id"), "نوع محصول", product.get("product_type")],
+        ["نام محصول", product.get("product_name") or product.get("product_id"), "رِوِژن محصول", product.get("product_revision")],
+        ["شمارهٔ سريال", product.get("product_serial"), "اپراتور", product.get("operator")],
+        ["برنامه تست", product.get("plan_name"), "رِوِژن برنامه", product.get("plan_revision")],
+        ["زمان شروع (شمسی)", product.get("started_at_iso"), "زمان اتمام (شمسی)", product.get("completed_at_iso")],
     ]
     r = 3
-    for k, v in summary_rows:
-        ck = ws.cell(row=r, column=1, value=_cell(k))
-        ck.font = Font(bold=True, size=11, name="Tahoma", color="475569")
-        ck.fill = PatternFill("solid", fgColor="F1F5F9")
-        cv = ws.cell(row=r, column=2, value=_cell(v))
-        cv.font = Font(size=11, name="Tahoma")
-        for cell in (ck, cv):
-            cell.border = Border(bottom=Side(style="thin", color="E2E8F0"))
+    for a, va, b, vb in info_rows:
+        ca = ws.cell(row=r, column=1, value=a)
+        ca.font = Font(bold=True, size=11, name="Tahoma", color="475569")
+        ca.fill = PatternFill("solid", fgColor="F1F5F9")
+        ca.border = Border(bottom=Side(style="thin", color="E2E8F0"))
+        cva = ws.cell(row=r, column=2, value=va)
+        cva.font = Font(size=11, name="Tahoma")
+        cva.border = Border(bottom=Side(style="thin", color="E2E8F0"))
+        cb = ws.cell(row=r, column=3, value=b)
+        cb.font = Font(bold=True, size=11, name="Tahoma", color="475569")
+        cb.fill = PatternFill("solid", fgColor="F1F5F9")
+        cb.border = Border(bottom=Side(style="thin", color="E2E8F0"))
+        cvb = ws.cell(row=r, column=4, value=vb)
+        cvb.font = Font(size=11, name="Tahoma")
+        cvb.border = Border(bottom=Side(style="thin", color="E2E8F0"))
         r += 1
-    ws.column_dimensions["A"].width = 34
-    ws.column_dimensions["B"].width = 60
 
-    # Sheet 2: Test Results
-    res_headers = ["نوع تست", "هدف", "منتظرشده", "مشاهدشده", "Low Range", "High Range",
-                   "وضعیت رنج", "وضعیت کلی", "تایید اپراتور", "دلیل فنی", "شرح (فارسی)", "زمان شروع (شمسی)"]
-    res_rows = [
-        [
-            x.get("test_kind"), x.get("target"), x.get("expected"), x.get("observed"),
-            x.get("range_low"), x.get("range_high"), x.get("range_status"), x.get("status"),
-            "بله" if x.get("operator_confirmed") else "خیر",
-            x.get("technical_reason"), x.get("explanation_fa"),
-            x.get("started_at_fmt"),
-        ]
-        for x in (product.get("results") or [])
+    # وضعیت نهایی با رنگ بزرگ
+    r += 1
+    ws.merge_cells(f"A{r}:H{r}")
+    cc = ws.cell(row=r, column=1)
+    cc.value = f"وضعیت نهایی: {'تاییدشده (PASS)' if product.get('outcome_accepted') else 'ردشده/خطا (FAIL)'}"
+    cc.font = Font(bold=True, size=16, color="FFFFFF", name="Tahoma")
+    cc.fill = PatternFill("solid", fgColor="006100" if product.get("outcome_accepted") else "9C0006")
+    cc.alignment = Alignment(horizontal="center", vertical="center")
+    cc.border = Border(left=Side(style="thin", color="000000"), right=Side(style="thin", color="000000"),
+                       top=Side(style="thin", color="000000"), bottom=Side(style="thin", color="000000"))
+
+    # شاخص‌های کلیدی با کارت رنگی
+    r += 2
+    ws.merge_cells(f"A{r}:H{r}")
+    ch = ws.cell(row=r, column=1, value="شاخص‌های کلیدی")
+    ch.font = Font(bold=True, size=14, color="1D4ED8", name="Tahoma")
+
+    kpis = [
+        ("تست‌های تاییدشده", product.get("pass_tests", 0), "C6EFCE", "006100"),
+        ("تست‌های خارج از رنج", product.get("fail_tests", 0), "FFC7CE", "9C0006"),
+        ("خطاهای سیستمی", product.get("error_tests", 0), "FFEB9C", "9C6500"),
+        ("نرخ تایید", f'{product.get("pass_rate", 0):.1f}%', "E2EFDA", "375623"),
     ]
-    _write_sheet(wb.create_sheet("نتایج تست"), "نتایج تست", res_headers, res_rows, date_cols=(12,))
+    ccol = 1
+    for label, val, fill, fontc in kpis:
+        cell = ws.cell(row=r + 1, column=ccol, value=label)
+        cell.font = Font(bold=True, size=11, name="Tahoma", color="475569")
+        cell.fill = PatternFill("solid", fgColor=fill)
+        cell.border = Border(left=Side(style="thin", color="CBD5E1"), right=Side(style="thin", color="CBD5E1"),
+                             top=Side(style="thin", color="CBD5E1"), bottom=Side(style="thin", color="CBD5E1"))
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        vcell = ws.cell(row=r + 1, column=ccol + 1, value=val)
+        vcell.font = Font(bold=True, size=16, name="Tahoma", color=fontc)
+        vcell.fill = PatternFill("solid", fgColor=fill)
+        vcell.border = Border(left=Side(style="thin", color="CBD5E1"), right=Side(style="thin", color="CBD5E1"),
+                              top=Side(style="thin", color="CBD5E1"), bottom=Side(style="thin", color="CBD5E1"))
+        vcell.alignment = Alignment(horizontal="center", vertical="center")
+        ccol += 2
 
-    # Sheet 3: Test Plan Steps
+    # نمودارทortie (پاورپوينت-اشخانه) با openpyxl PieChart
+    from openpyxl.chart import PieChart, Reference
+    pie = PieChart()
+    pie.title = "توزیع نتایج تست"
+    data = Reference(ws, min_col=2, min_row=r + 1, max_row=r + 3, max_col=2)
+    cats = Reference(ws, min_col=1, min_row=r + 1, max_row=r + 3, max_col=1)
+    pie.add_data(data, titles_from_data=False)
+    pie.set_categories(cats)
+    pie.height = 9
+    pie.width = 18
+    ws.add_chart(pie, f"A{r + 4}")
+
+    # ========== Sheet 2: نتایج تست (بصری با نوار محدوده) ==========
+    res_headers = ["نوع تست", "هدف (Target)", "منتظرشده", "مشاهدشده", "حد پایین", "حد بالایی",
+                   "نوار جایگاه عقربه", "وضعیت رنج", "وضعیت کلی", "تایید اپراتور", "شرح (فارسی)"]
+    res_rows = []
+    for x in (product.get("results") or []):
+        bar = _range_bar(x.get("observed"), x.get("range_low"), x.get("range_high"))
+        res_rows.append([
+            x.get("test_kind"), x.get("target"), x.get("expected"), x.get("observed"),
+            x.get("range_low"), x.get("range_high"),
+            bar, x.get("range_status"), x.get("status"),
+            "✅ تایید شده" if x.get("operator_confirmed") else "⏳ تایید نشده",
+            x.get("explanation_fa"),
+        ])
+    ws2 = wb.create_sheet("نتایج تست")
+    _write_sheet(ws2, "نتایج تست — جایگاه هر تست در محدوده مجاز", res_headers, res_rows)
+    # رنگ‌بندی ستون‌های وضعیت
+    for i, row in enumerate(res_rows, start=4):
+        status_cell = ws2.cell(row=i, column=9)
+        _status_fill(status_cell, row[8])
+        range_cell = ws2.cell(row=i, column=8)
+        _status_fill(range_cell, row[7])
+        op_cell = ws2.cell(row=i, column=10)
+        if "تایید شده" in str(row[9]):
+            op_cell.fill = PatternFill("solid", fgColor="C6EFCE")
+            op_cell.font = Font(bold=True, color="006100", size=10, name="Tahoma")
+        else:
+            op_cell.fill = PatternFill("solid", fgColor="FFEB9C")
+            op_cell.font = Font(bold=True, color="9C6500", size=10, name="Tahoma")
+
+    # ========== Sheet 3: مراحل برنامه تست ==========
     step_headers = ["ترتیب", "شناسه مرحله", "نوع", "هدف", "منتظرشده", "Tolerance", "اکشن", "مشاهدشده",
                     "زمان نسبت به شروع (ms)", "پکت منبع"]
     step_rows = [
@@ -459,9 +555,9 @@ def build_excel_bytes(product):
          f'{s.get("relative_ms", 0):.1f}', s.get("source_packet_id")]
         for s in (product.get("plan_steps") or [])
     ]
-    _write_sheet(wb.create_sheet("مراحل برنامه"), "مراحل برنامه", step_headers, step_rows)
+    _write_sheet(wb.create_sheet("مراحل برنامه"), "مراحل برنامه تست", step_headers, step_rows)
 
-    # Sheet 4: Events
+    # ========== Sheet 4: رویدادها ==========
     ev_headers = ["زمان (شمسی)", "نوع رویداد", "شناسه", "هدف", "منتظرشده", "مرحله تست", "پکت"]
     ev_rows = [
         [e.get("occurred_at_fmt") or to_shamsi(e.get("occurred_at")), e.get("kind"),
@@ -470,9 +566,9 @@ def build_excel_bytes(product):
          e.get("packet_id")]
         for e in (product.get("events") or [])
     ]
-    _write_sheet(wb.create_sheet("رویدادها"), "رویدادها", ev_headers, ev_rows, date_cols=(1,))
+    _write_sheet(wb.create_sheet("رویدادها"), "رویدادها", ev_headers, ev_rows)
 
-    # Sheet 5: CAN Packets
+    # ========== Sheet 5: پکت‌های CAN ==========
     pk_headers = ["زمان دریافت (شمسی)", "مبدا IP:پورت", "مقصد IP:پورت", "پديو (hex)", "رابطه"]
     pk_rows = [
         [p.get("received_at_fmt") or to_shamsi(p.get("received_at")),
@@ -481,14 +577,14 @@ def build_excel_bytes(product):
          p.get("payload_hex"), p.get("capture_interface")]
         for p in (product.get("packets") or [])
     ]
-    _write_sheet(wb.create_sheet("پکت‌های CAN"), "پکت‌های CAN", pk_headers, pk_rows, date_cols=(1,))
+    _write_sheet(wb.create_sheet("پکت‌های CAN"), "پکت‌های CAN", pk_headers, pk_rows)
 
-    # Sheet 6: Errors
+    # ========== Sheet 6: خطاها ==========
     _write_sheet(wb.create_sheet("خطاها"), "خطاها",
                  ["ردیف", "خطا"],
                  [[i + 1, e] for i, e in enumerate(product.get("errors") or [])])
 
-    # Sheet 7: Placement
+    # ========== Sheet 7: جایگاه‌دهی تصویر ==========
     pl = product.get("placement") or {}
     counts = pl.get("counts") or {}
     pl_rows = [
@@ -503,7 +599,7 @@ def build_excel_bytes(product):
         ["حداکثر زمان estimate (ms)", pl.get("estimate_ms_max")],
         ["وضعیت قفل", "قفل‌شده" if pl.get("locked") else "باز"],
     ]
-    _write_sheet(wb.create_sheet("جایگاه‌دهی"), "جایگاه‌دهی", ["مورد", "مقدار"], pl_rows)
+    _write_sheet(wb.create_sheet("جایگاه‌دهی"), "جایگاه‌دهی تصویر", ["مورد", "مقدار"], pl_rows)
 
     buf = BytesIO()
     wb.save(buf)
