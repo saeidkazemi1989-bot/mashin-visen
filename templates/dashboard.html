@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block extra_head %}
+<style>
+  .hero-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .hero-card{ background: linear-gradient(135deg, #eff6ff 0%, #f1f5f9 100%); border: 1px solid var(--border); border-radius: 14px; padding: 20px; position: relative; overflow: hidden; }
+  .hero-card::before{ content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--brand); }
+  .hero-card h3{ margin: 0 0 10px; font-size: 15px; color: var(--brand); display: flex; align-items: center; gap: 6px; }
+  .hero-card .big{ font-size: 30px; font-weight: 900; margin: 4px 0 2px; letter-spacing: -1px; }
+  .hero-card .sub{ font-size: 12px; color: var(--muted); font-weight: 700; }
+  .hero-card .big.ok{ color: var(--success); }
+  .hero-card .big.bad{ color: var(--danger); }
+  .hero-card .big.total{ color: var(--brand); }
+  .hero-card .big.warn{ color: var(--warning); }
+  .hero-card .big.info{ color: var(--info); }
+  .two{ display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+  @media (max-width: 1024px){ .two{ grid-template-columns: 1fr; } }
+  .daily-chart-wrap{ min-height: 260px; }
+  .empty{ text-align: center; padding: 40px; color: var(--muted); }
+  .empty .ic{ font-size: 40px; margin-bottom: 12px; }
+
+  /* HTML Bar Chart - Persian friendly */
+  .bar-chart{ width: 100%; height: 200px; display: flex; align-items: flex-end; gap: 14px; padding: 20px 10px 40px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--white); }
+  .bar{ flex: 1; background: var(--accent); border-radius: 6px 6px 0 0; position: relative; display: flex; align-items: flex-end; justify-content: center; transition: height 0.5s ease; }
+  .bar:hover{ filter: brightness(1.1); }
+  .bar-val{ position: absolute; top: -24px; font-size: 12px; font-weight: 800; color: var(--text); white-space: nowrap; }
+  .bar-label{ writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); font-size: 11.5px; color: var(--muted); font-weight: 700; white-space: nowrap; margin-top: 8px; text-align: center; }
+  .bar-max-line{ position: absolute; top: 0; left: 0; right: 0; height: 1px; background: #e2e8f0; }
+  .bar-y-axis{ position: absolute; left: 8px; top: 20px; bottom: 40px; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; color: var(--muted); text-align: right; width: 30px; }
+
+  .donut-wrap{ display: flex; align-items: center; justify-content: center; gap: 16px; padding: 20px; }
+  .donut-svg{ width: 180px; height: 180px; }
+  .donut-text{ font-size: 26px; font-weight: 900; color: var(--text); }
+  .donut-sub{ font-size: 12px; color: var(--muted); font-weight: 700; }
+
+  .kind-bar{ display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .kind-bar .name{ width: 70px; font-size: 12px; font-weight: 700; color: var(--text); text-align: right; }
+  .kind-bar .track{ flex: 1; height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden; }
+  .kind-bar .fill{ height: 100%; background: var(--accent); border-radius: 5px; }
+  .kind-bar .val{ width: 40px; font-size: 12px; font-weight: 800; color: var(--brand); text-align: left; }
+</style>
+{% endblock %}
+{% block content %}
+
+<div class="path-box">
+  <form method="post" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:10px;">
+    <label>📁 مسیر پوشه داده‌های تست (شبکه یا محلی):</label>
+    <input name="data_path" value="{{ data_path or '' }}" placeholder="مثلاً D:\AI_SharpVision_v5.1.0\runs یا \\سرور\شرکت\داده_تست">
+    <div class="btn-row">
+      <button type="submit" class="button">بارگذاری داده‌ها از این مسیر</button>
+      <a href="{{ url_for('dashboard', data_path=data_path) }}" class="button ghost">بازنشانی</a>
+    </div>
+    <div class="help">اگر مسیر خالی باشد، هیچ داده‌ای نمایش داده نمی‌شود. مسیر می‌تواند یک پوشه شبکه (Share)، NAS یا پوشه محلی باشد.</div>
+  </form>
+</div>
+
+{% if not data_path %}
+<div class="empty"><div class="ic">📂</div><div>لطفاً مسیر پوشه داده‌های تست را در بالا وارد کنید.</div></div>
+{% else %}
+
+<!-- KPI Hero Cards -->
+<div class="hero-grid">
+  <div class="hero-card">
+    <h3>📦 تعداد محصولات تست شده</h3>
+    <div class="big total">{{ kpis.total_products }}</div>
+    <div class="sub">شناسه جلسه منحصربه‌فرد</div>
+  </div>
+  <div class="hero-card">
+    <h3>✅ نرخ تایید کلی</h3>
+    <div class="big {{ 'ok' if kpis.pass_rate>=95 else 'bad' }}">{{ "%.1f"|format(kpis.pass_rate) }}%</div>
+    <div class="sub">تست‌های تاییدشده از کل</div>
+  </div>
+  <div class="hero-card">
+    <h3>🧪 تعداد کل تست‌ها</h3>
+    <div class="big total">{{ kpis.total_tests }}</div>
+    <div class="sub">همه آیتم‌های تستی</div>
+  </div>
+  <div class="hero-card">
+    <h3>🟢 تست‌های تاییدشده</h3>
+    <div class="big ok">{{ kpis.pass_tests }}</div>
+    <div class="sub">در رنج مجاز / PASS</div>
+  </div>
+  <div class="hero-card">
+    <h3>🔴 تست‌های خارج از رنج</h3>
+    <div class="big bad">{{ kpis.fail_tests }}</div>
+    <div class="sub">تست‌های ردشده / FAIL</div>
+  </div>
+  <div class="hero-card">
+    <h3>⚠️ خطاهای سیستمی</h3>
+    <div class="big warn">{{ kpis.error_tests }}</div>
+    <div class="sub">خطا در اجرای تست</div>
+  </div>
+  <div class="hero-card">
+    <h3>⏱️ میانگین مدت تست</h3>
+    <div class="big info">{{ "%.1f"|format(kpis.avg_duration) }} ثانیه</div>
+    <div class="sub">متوسط زمان هر تست</div>
+  </div>
+</div>
+
+<div class="two">
+  <div class="card daily-chart-wrap">
+    <div class="card-head">
+      <span>روند روزانه تست‌ها (شمسی)</span>
+      <span class="small">تعداد تست‌های اجرا شده در هر روز</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <div class="bar-chart">
+        {% set days = kpis.daily %}
+        {% set maxv = (days | map(attribute='total') | max) if days else 1 %}
+        {% for d in days %}
+        {% set pct = (d.total / maxv) * 100 if maxv else 0 %}
+        <div class="bar" style="height: {{ pct }}%;">
+          <span class="bar-val">{{ d.total }}</span>
+        </div>
+        <div class="bar-label">{{ d.day }}</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span>توزيع نتایج تست</span>
+      <span class="small">تاییدشده vs ردشده</span>
+    </div>
+    <div class="card-body" style="padding:0; display:flex; align-items:center; justify-content:center;">
+      <div class="donut-wrap">
+        <div class="donut-text">{{ "%.0f"|format(donut_pct) }}%</div>
+        <div class="donut-sub">تاییدشده</div>
+      </div>
+    </div>
+    <div class="small text-center mt-6" style="margin-top:10px;">رد: {{ kpis.fail_tests }} · تایید: {{ kpis.pass_tests }} · از کل {{ kpis.total_tests }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <span>تفکیک بر اساس نوع تست</span>
+    <span class="small">LOGO / GAUGE / LCD</span>
+  </div>
+  <div class="card-body">
+    <div style="padding: 16px;">
+      {% for kind, d in kpis.by_kind.items() %}
+      {% set pct = d.pass and (d.pass*100//d.total) or 0 %}
+      <div class="kind-bar">
+        <div class="name">{{ kind }}</div>
+        <div class="track"><div class="fill" style="width: {{ pct }}%;"></div></div>
+        <div class="val">{{ d.pass }} / {{ d.total }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Filter and Table -->
+<div class="filter-bar">
+  <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
+    <label>فیلتر بازه زمانی (شمسی)</label>
+    <div style="display:flex; gap:8px;">
+      <input name="date_from" type="text" value="{{ date_from }}" placeholder="از تاریخ ۱۴۰۵/۰۱/۰۱">
+      <input name="date_to" type="text" value="{{ date_to }}" placeholder="تا تاریخ ۱۴۰۵/۱۲/۳۰">
+    </div>
+  </form>
+  <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
+    <label>نوع محصول</label>
+    <input name="product_type" value="{{ product_type_filter }}" placeholder="مثلاً جلو آمپر">
+  </form>
+  <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
+    <label>وضعیت</label>
+    <select name="status" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
+      <option value="">همه وضعیتها</option>
+      <option value="PASS" {% if status_filter=='PASS' %}selected{% endif %}>تاییدشده</option>
+      <option value="FAIL" {% if status_filter=='FAIL' %}selected{% endif %}>رد / خارج از رنج</option>
+    </select>
+  </form>
+  <form method="get" action="{{ url_for('dashboard') }}" style="display:flex; flex-direction:column; gap:6px;">
+    <input type="hidden" name="data_path" value="{{ data_path }}">
+    <label>جستجو (شناسه، محصول، اپراتور)</label>
+    <div style="display:flex; gap:8px;">
+      <input name="search" value="{{ search }}" placeholder="جستجو...">
+      <button type="submit" class="button sm">اعمال فیلتر</button>
+    </div>
+    <a href="{{ url_for('dashboard', data_path=data_path) }}" class="button ghost sm" style="width:auto;">پاکسازی فیلتر</a>
+  </form>
+</div>
+
+{% if products %}
+<div class="card">
+  <div class="card-head">
+    <span>لیست محصولات تست شده</span>
+    <span class="small">{{ products | length }} مورد یافت شد</span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>شناسه جلسه</th>
+          <th>نوع محصول</th>
+          <th>نام محصول / رِوِژن</th>
+          <th>اپراتور</th>
+          <th>تاریخ شروع (شمسی)</th>
+          <th>تست‌ها (تایید / کل)</th>
+          <th>وضعیت</th>
+          <th>عملیات</th>
+        </tr></thead>
+        <tbody>
+        {% for p in products %}
+        <tr>
+          <td class="nowrap">{{ p.session_id }}</td>
+          <td>{{ p.product_type }}</td>
+          <td>{{ p.product_name or p.product_id }} <span class="small">{{ p.product_revision }}</span></td>
+          <td>{{ p.operator }}</td>
+          <td class="nowrap">{{ p.started_at_iso }}</td>
+          <td class="center">{{ p.pass_tests }} / {{ p.total_tests }}</td>
+          <td class="center"><span class="badge {{ 'pass' if p.outcome_accepted else 'fail' }}">{{ 'تایید' if p.outcome_accepted else 'رد' }}</span></td>
+          <td class="center">
+            <a href="{{ url_for('product_detail', pid=p.session_id, data_path=data_path) }}" class="button ghost sm">مشاهده جزئیات</a>
+            <a href="{{ url_for('download_excel', pid=p.session_id, data_path=data_path) }}" class="button ghost sm">گزارش اکسل</a>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="empty"><div class="ic">📭</div><div>هیچ محصولی با این فیلترها یافت نشد.</div></div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

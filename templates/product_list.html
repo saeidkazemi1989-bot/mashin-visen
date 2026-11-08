@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="path-box">
+  <form method="get" action="{{ url_for('product_list') }}" style="display:flex; flex-direction:column; gap:10px;">
+    <label>📁 مسیر پوشه داده‌های تست (شبکه یا محلی):</label>
+    <input name="data_path" value="{{ data_path or '' }}" placeholder="مثلاً D:\AI_SharpVision_v5.1.0\runs یا \\سرور\شرکت\داده_تست">
+    <button type="submit" class="button">نمایش محصولات از این مسیر</button>
+    <div class="help">مسیر می‌تواند یک پوشه شبکه (Share)، NAS یا پوشه محلی باشد که حاوی پوشه‌های جلسه (session.json) است.</div>
+  </form>
+</div>
+
+{% if not data_path %}
+<div class="empty"><div class="ic">📂</div><div>لطفاً مسیر پوشه داده‌های تست را وارد کنید.</div></div>
+{% else %}
+{% if products %}
+<div class="card">
+  <div class="card-head">
+    <span>لیست محصولات تست شده</span>
+    <span class="small">{{ products | length }} مورد یافت شد</span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>شناسه جلسه</th>
+          <th>نوع محصول</th>
+          <th>نام محصول / رِوِژن</th>
+          <th>اپراتور</th>
+          <th>تاریخ شروع (شمسی)</th>
+          <th>تست‌ها (تایید / کل)</th>
+          <th>وضعیت</th>
+          <th>عملیات</th>
+        </tr></thead>
+        <tbody>
+        {% for p in products %}
+        <tr>
+          <td class="nowrap">{{ p.session_id }}</td>
+          <td>{{ p.product_type }}</td>
+          <td>{{ p.product_name or p.product_id }} <span class="small">{{ p.product_revision }}</span></td>
+          <td>{{ p.operator }}</td>
+          <td class="nowrap">{{ p.started_at_iso }}</td>
+          <td class="center">{{ p.pass_tests }} / {{ p.total_tests }}</td>
+          <td class="center"><span class="badge {{ 'pass' if p.outcome_accepted else 'fail' }}">{{ 'تایید' if p.outcome_accepted else 'رد' }}</span></td>
+          <td class="center">
+            <a href="{{ url_for('product_detail', pid=p.session_id, data_path=data_path) }}" class="button ghost sm">مشاهده جزئیات</a>
+            <a href="{{ url_for('download_excel', pid=p.session_id, data_path=data_path) }}" class="button ghost sm">گزارش اکسل</a>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="empty"><div class="ic">📭</div><div>هیچ محصولی در این مسیر یافت نشد.</div></div>
+{% endif %}
+{% endif %}
+{% endblock %}

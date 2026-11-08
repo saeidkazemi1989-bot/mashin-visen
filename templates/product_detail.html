@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block extra_head %}
+<style>
+  .tabpanel table{ font-size: 12px; }
+  .badge-group{ display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 800; border: 1px solid var(--border); }
+  .wrap{ white-space: pre-wrap; word-break: break-all; font-family: Consolas, monospace; font-size: 11px; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid var(--border); max-width: 100%; overflow: auto; }
+  .hex{ color: #0f766e; font-weight: 800; }
+  .status-col .pass{ color: var(--success); font-weight: 800; }
+  .status-col .fail{ color: var(--danger); font-weight: 800; }
+  .kv-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .kv-item{ background: var(--gray-50); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  .kv-item .k{ font-size: 11.5px; color: var(--muted); display: block; font-weight: 800; }
+  .kv-item .v{ font-size: 13px; font-weight: 800; margin-top: 3px; word-break: break-all; color: var(--text); }
+  .explain-fa{ direction: rtl; color: var(--gray-700); font-style: italic; font-size: 12px; }
+  .range-badge{ font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 10px; border: 1px solid transparent; }
+  .range-ok{ background: #ecfdf5; color: var(--success); border-color: #bbf7d0; }
+  .range-out{ background: #fef2f2; color: var(--danger); border-color: #fecaca; }
+  .range-na{ background: #f1f5f9; color: var(--muted); border-color: #cbd5e1; }
+  .kind-card{ border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; background: var(--white); overflow: hidden; box-shadow: var(--shadow); }
+  .kind-header{ padding: 10px 16px; background: var(--gray-50); border-bottom: 1px solid var(--border); font-weight: 800; color: var(--brand); display:flex; justify-content:space-between; align-items:center; }
+  .kind-stats span{ margin-left: 10px; font-size: 12px; font-weight: 800; }
+  .kind-table{ font-size: 11.5px; }
+  .kind-table th, .kind-table td{ padding: 7px 10px; border-bottom: 1px solid var(--gray-100); text-align: right; }
+  .confirm-form{ display:inline; margin-left: 8px; }
+  .confirm-form input{ width: auto; display: inline-block; padding: 6px 10px; font-size: 12px; border-radius: 6px; }
+  .confirm-form button{ padding: 6px 12px; font-size: 12px; margin-left: 4px; }
+
+  /* Gauge chart for observed value within range */
+  .gauge-wrap{ display: flex; flex-direction: column; align-items: center; padding: 20px; background: var(--white); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 20px; box-shadow: var(--shadow); }
+  .gauge-title{ font-weight: 800; color: var(--brand); margin-bottom: 14px; font-size: 14px; }
+  .gauge{ position: relative; width: 260px; height: 130px; overflow: hidden; }
+  .gauge-arc{ position: absolute; top: 60px; left: 0; right: 0; height: 70px; border-radius: 0 0 130px 130px; border: 14px solid #e2e8f0; }
+  .gauge-arc-zone{ position: absolute; top: 60px; left: 0; right: 0; height: 70px; border-radius: 0 0 130px 130px; border: 14px solid transparent; }
+  .gauge-zone-ok{ border-color: #10b981; }
+  .gauge-zone-warn{ border-color: #f59e0b; }
+  .gauge-zone-danger{ border-color: #ef4444; }
+  .gauge-needle{ position: absolute; bottom: 70px; left: 50%; width: 4px; height: 60px; background: var(--brand); transform-origin: bottom center; transform: rotate(-90deg); transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
+  .gauge-needle-cap{ position: absolute; bottom: 66px; left: 50%; width: 16px; height: 16px; background: var(--brand); border-radius: 50%; transform: translateX(-50%); z-index: 11; }
+  .gauge-labels{ position: absolute; top: 150px; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-weight: 700; padding: 0 20px; }
+  .gauge-value{ font-size: 20px; font-weight: 900; color: var(--text); margin-top: 10px; }
+  .gauge-status{ font-size: 13px; font-weight: 800; margin-top: 4px; }
+  .gauge-status.ok{ color: var(--success); }
+  .gauge-status.bad{ color: var(--danger); }
+  .gauge-status.warn{ color: var(--warning); }
+  .gauge-row{ display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+  .gauge-item{ min-width: 260px; }
+  .back-link{ margin-bottom: 10px; display: inline-block; }
+  .btn-group{ display:flex; gap:8px; flex-wrap:wrap; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📋 جزئیات محصول · {{ product.session_id }}</h1>
+    <p class="subtitle">{{ product.product_name or product.product_id }} · نوع: {{ product.product_type }} · رِوِژن {{ product.product_revision }} · برنامه: {{ product.plan_name }}</p>
+  </div>
+  <div class="actions btn-group">
+    <a href="{{ url_for('dashboard', data_path=data_path) }}" class="button ghost">بازگشت به داشبورد</a>
+    <a href="{{ url_for('download_excel', pid=product.session_id, data_path=data_path) }}" class="button">دانلود گزارش اکسل</a>
+  </div>
+</div>
+
+<!-- Outcome banner -->
+<div class="card">
+  <div class="card-body" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+    <div>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+        <span class="badge {{ 'pass' if product.outcome_accepted else 'fail' }}">{{ 'تاییدشده (PASS)' if product.outcome_accepted else 'ردشده (FAIL)' }}</span>
+        <span class="small">تست‌ها: {{ product.total_tests }} &bull; تایید: {{ product.pass_tests }} &bull; رد: {{ product.fail_tests }} &bull; خطا: {{ product.error_tests }}</span>
+      </div>
+      <div>
+        <span class="kv"><b>شروع (شمسی):</b> {{ product.started_at_iso }}</span>
+        <span class="kv" style="margin-left:14px;"><b>اتمام (شمسی):</b> {{ product.completed_at_iso }}</span>
+        <span class="kv" style="margin-left:14px;"><b>مدت:</b> {{ "%.1f"|format(product.duration_seconds) }} ثانیه</span>
+      </div>
+    </div>
+    <div class="kv-grid" style="margin-top:10px;">
+      <div class="kv-item"><span class="k">شناسه جلسه</span><span class="v">{{ product.session_id }}</span></div>
+      <div class="kv-item"><span class="k">نوع محصول</span><span class="v">{{ product.product_type }}</span></div>
+      <div class="kv-item"><span class="k">نام محصول</span><span class="v">{{ product.product_name or product.product_id }}</span></div>
+      <div class="kv-item"><span class="k">رِوِژن محصول</span><span class="v">{{ product.product_revision }}</span></div>
+      <div class="kv-item"><span class="k">سریال</span><span class="v">{{ product.product_serial }}</span></div>
+      <div class="kv-item"><span class="k">اپراتور</span><span class="v">{{ product.operator }}</span></div>
+      <div class="kv-item"><span class="k">برنامه تست</span><span class="v">{{ product.plan_name }} ({{ product.plan_id }})</span></div>
+      <div class="kv-item"><span class="k">رِوِژن برنامه</span><span class="v">{{ product.plan_revision }}</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button onclick="opentab(event, 'summary')" id="tab-summary" class="active">خلاصه و شاخص‌ها</button>
+  <button onclick="opentab(event, 'results')" id="tab-results">نتایج تست ({{ product.total_tests }})</button>
+  <button onclick="opentab(event, 'plan')" id="tab-plan">برنامه تست و مراحل</button>
+  <button onclick="opentab(event, 'events')" id="tab-events">رویدادها ({{ product.event_count }})</button>
+  <button onclick="opentab(event, 'packets')" id="tab-packets">پکت‌های CAN ({{ product.packet_count }})</button>
+  <button onclick="opentab(event, 'placement')" id="tab-placement">جایگاه‌دهی و خطاها</button>
+</div>
+
+<div id="summary" class="tabpanel active">
+  <h3>شاخص‌های کلیدی</h3>
+  <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));">
+    <div class="kpi"><div class="l">تست‌های تاییدشده</div><div class="v ok">{{ product.pass_tests }}</div></div>
+    <div class="kpi"><div class="l">تست‌های خارج از رنج / رد</div><div class="v bad">{{ product.fail_tests }}</div></div>
+    <div class="kpi"><div class="l">خطاهای سیستمی</div><div class="v bad">{{ product.error_tests }}</div></div>
+    <div class="kpi"><div class="l">نرخ تایید</div><div class="v total">{{ "%.1f"|format(product.pass_rate) }}%</div></div>
+    <div class="kpi"><div class="l">مدت کل تست</div><div class="v">{{ "%.1f"|format(product.duration_seconds) }} ثانیه</div></div>
+    <div class="kpi"><div class="l">تعداد پکت CAN</div><div class="v">{{ product.packet_count }}</div></div>
+  </div>
+
+  <div style="display:flex; gap:20px; flex-wrap:wrap;">
+    <div class="card" style="flex:1; min-width:300px;">
+      <div class="card-head">
+        <span>توزیع بر اساس نوع تست</span>
+        <span class="small">تعداد آیست‌های هر نوع تست</span>
+      </div>
+      <div class="card-body" style="padding: 16px;">
+        {% for kind, d in product.by_kind.items() %}
+        {% set pct = d.pass and (d.pass*100//d.total) or 0 %}
+        <div class="kind-bar">
+          <div class="name">{{ kind }}</div>
+          <div class="track"><div class="fill" style="width: {{ pct }}%;"></div></div>
+          <div class="val">{{ d.pass }} / {{ d.total }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="card" style="flex:1; min-width:280px;">
+      <h3 style="margin-top:0;">شرح نتایج (فارسی)</h3>
+      {% if product.examples_fa %}
+      <ul style="padding-right:20px; line-height:1.8; margin:0;">
+      {% for e in product.examples_fa %}
+        <li><span class="badge {{ 'pass' if e.status=='PASS' else 'fail' }}">{{ e.status }}</span> <b>{{ e.target }}</b>: <span class="explain-fa">{{ e.explanation }}</span></li>
+      {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty" style="padding:20px;"><div class="ic">📝</div><div>شرحی در فارسی ثبت نشده است.</div></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div id="results" class="tabpanel">
+  <!-- نمایش گرافیکی موقعیت عقربه هر تست -->
+  <div class="gauge-row">
+  {% for kind, d in product.by_kind.items() %}
+    {% set items = d.get('items') or [] %}
+    {% for item in items %}
+    {% if item.test_kind == 'GAUGE' or item.range_status is not none %}
+    <div class="gauge-item">
+      <div class="gauge-wrap">
+        <div class="gauge-title">{{ item.target }} ({{ item.test_kind }})</div>
+        <div class="gauge">
+          <div class="gauge-arc"></div>
+          <div class="gauge-arc-zone gauge-zone-ok" style="transform: rotate(-45deg); transform-origin: bottom center; border-right-color: #10b981;"></div>
+          <div class="gauge-arc-zone gauge-zone-danger" style="transform: rotate(45deg); transform-origin: bottom center; border-left-color: #ef4444;"></div>
+          <div class="gauge-needle" style="transform: rotate({{ (item.range_status == 'OK' and '-45' or item.range_status == 'OUT_OF_RANGE' and '45' or '0') }}deg);"></div>
+          <div class="gauge-needle-cap"></div>
+        </div>
+        <div class="gauge-labels">
+          <span>{{ item.range_low if item.range_low is not none else 'حد پایین' }}</span>
+          <span>{{ item.range_high if item.range_high is not none else 'حد بالایی' }}</span>
+        </div>
+        <div class="gauge-value">{{ item.observed }}</div>
+        <div class="gauge-status {{ 'ok' if item.range_status=='OK' else 'bad' if item.range_status=='OUT_OF_RANGE' else 'warn' }}">
+          {{ 'در رنج مجاز (OK)' if item.range_status=='OK' else 'خارج از رنج (OUT_OF_RANGE)' if item.range_status=='OUT_OF_RANGE' else 'تعریف نشده' }}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  {% endfor %}
+  </div>
+
+  {% set grouped = product.by_kind %}
+  {% if grouped %}
+    {% for kind, d in grouped.items() %}
+    {% set items = d.get('items') or [] %}
+    <div class="kind-card">
+      <div class="kind-header">
+        <span>{{ kind }}</span>
+        <div class="kind-stats">
+          <span class="range-ok">تعداد: {{ d.total }}</span>
+          <span class="{{ 'range-ok' if d.pass==d.total else 'range-out' }}">تایید: {{ d.pass }}</span>
+          {% if d.fail > 0 %}<span class="range-out">رد: {{ d.fail }}</span>{% endif %}
+          {% if d.error > 0 %}<span class="range-na">خطا: {{ d.error }}</span>{% endif %}
+        </div>
+      </div>
+      <table class="kind-table">
+        <thead>
+          <tr>
+            <th>هدف (Target)</th>
+            <th>منتظرشده</th>
+            <th>مشاهدشده</th>
+            <th>Tolerance</th>
+            <th>حد پایین</th>
+            <th>حد بالایی</th>
+            <th>وضعیت رنج</th>
+            <th>وضعیت کلی</th>
+            <th>تایید اپراتور</th>
+            <th>شرح (فارسی)</th>
+            <th>عملیات</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in items %}
+        <tr>
+          <td class="nowrap">{{ item.target }}</td>
+          <td class="nowrap">{{ item.expected }}</td>
+          <td class="nowrap">{{ item.observed }}</td>
+          <td class="nowrap">{{ item.tolerance if item.tolerance is not none else '—' }}</td>
+          <td class="nowrap">{{ item.range_low if item.range_low is not none else '—' }}</td>
+          <td class="nowrap">{{ item.range_high if item.range_high is not none else '—' }}</td>
+          <td class="center"><span class="range-badge {{ 'range-ok' if item.range_status=='OK' else 'range-out' if item.range_status=='OUT_OF_RANGE' else 'range-na' }}">{{ item.range_status }}</span></td>
+          <td class="center status-col"><span class="{{ 'pass' if item.status=='PASS' else 'fail' }}">{{ item.status }}</span></td>
+          <td class="center">{{ '✅ تاییدشده' if item.operator_confirmed else '⏳ تایید نشده' }}</td>
+          <td class="explain-fa">{{ item.explanation_fa }}</td>
+          <td class="center">
+            {% if not item.operator_confirmed %}
+            <form class="confirm-form" method="post" action="{{ url_for('confirm_result', pid=product.session_id, result_id=item.test_kind + '_' + (item.target|string) + '_' + loop.index|string) }}" onsubmit="return confirm('آیا مایل به تایید این تست توسط اپراتور هستید؟');">
+              <input type="hidden" name="data_path" value="{{ data_path }}">
+              <input type="text" name="operator_name" value="{{ product.operator }}" placeholder="نام اپراتور">
+              <button type="submit" class="button ghost sm">تایید</button>
+            </form>
+            {% else %}
+            <span class="badge pass">تایید شده</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="empty"><div class="ic">📭</div><div>هیچ نتیجه تستی ثبت نشده است.</div></div>
+  {% endif %}
+</div>
+
+<div id="plan" class="tabpanel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>ترتیب</th><th>شناسه مرحله</th><th>نوع</th><th>هدف</th><th>منتظرشده</th><th>Tolerance</th><th>اکشن</th><th>مشاهدشده</th><th>زمان نسبت به شروع (ms)</th><th>پکت منبع</th>
+      </tr></thead>
+      <tbody>
+      {% for s in product.plan_steps %}
+      <tr>
+        <td class="center">{{ s.order }}</td>
+        <td class="nowrap">{{ s.step_id }}</td>
+        <td>{{ s.kind }}</td>
+        <td>{{ s.target }}</td>
+        <td class="nowrap">{{ s.expected }}</td>
+        <td class="nowrap">{{ s.tolerance if s.tolerance is not none else '—' }}</td>
+        <td>{{ s.action }}</td>
+        <td class="center">{{ 'بله' if s.observed else 'خیر' }}</td>
+        <td class="nowrap">{{ "%.1f"|format(s.relative_ms) }}</td>
+        <td class="nowrap wrap">{{ s.source_packet_id }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="events" class="tabpanel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>زمان (شمسی)</th><th>نوع رویداد</th><th>شناسه (identifier)</th><th>هدف</th><th>منتظرشده</th><th>مرحله تست</th><th>پکت</th>
+      </tr></thead>
+      <tbody>
+      {% for e in product.events %}
+      <tr>
+        <td class="nowrap">{{ e.occurred_at_fmt }}</td>
+        <td>{{ e.kind }}</td>
+        <td class="nowrap">{{ e.identifier }}</td>
+        <td>{{ e.target }}</td>
+        <td class="center">{{ e.expected }}</td>
+        <td class="nowrap">{{ (e.details.test_plan.step_id if e.details and e.details.test_plan else '') }}</td>
+        <td class="nowrap wrap">{{ e.packet_id }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="packets" class="tabpanel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>زمان دریافت (شمسی)</th><th>مبدا IP:پورت</th><th>مقصد IP:پورت</th><th>پديو (hex)</th><th>رابطه</th>
+      </tr></thead>
+      <tbody>
+      {% for p in product.packets %}
+      <tr>
+        <td class="nowrap">{{ p.received_at_fmt }}</td>
+        <td class="nowrap wrap">{{ p.source_ip }}:{{ p.source_port }}</td>
+        <td class="nowrap wrap">{{ p.destination_ip }}:{{ p.destination_port }}</td>
+        <td class="wrap hex">{{ p.payload_hex }}</td>
+        <td>{{ p.capture_interface }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="placement" class="tabpanel">
+  <div style="display:flex; gap:20px; flex-wrap:wrap;">
+    <div class="card" style="flex:1; min-width:320px;">
+      <h3 style="margin-top:0;">خطاها</h3>
+      {% if product.errors %}
+      <ul style="padding-right:20px; line-height:1.8; margin:0;">
+      {% for err in product.errors %}
+        <li>{{ err }}</li>
+      {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty" style="padding:20px;"><div class="ic">✅</div><div>هیچ خطایی ثبت نشده است.</div></div>
+      {% endif %}
+    </div>
+    <div class="card" style="flex:1; min-width:320px;">
+      <h3 style="margin-top:0;">جایگاه‌دهی تصویر (placement)</h3>
+      {% if product.placement %}
+      <table class="kv">
+        <tr><td>موتور estimate</td><td>{{ product.placement.engine }}</td></tr>
+        <tr><td>dx / dy</td><td>{{ product.placement.dx }} / {{ product.placement.dy }}</td></tr>
+        <tr><td>spreッド</td><td>{{ product.placement.spread_px }} px</td></tr>
+        <tr><td>تاییدشده / رد / presenting</td><td>{{ product.placement.counts.trusted }} / {{ product.placement.counts.rejected }} / {{ product.placement.counts.offered }}</td></tr>
+        <tr><td>mediana زمان estimate</td><td>{{ "%.3f"|format(product.placement.estimate_ms_median) }} ms</td></tr>
+        <tr><td>وضعیت قفل</td><td>{{ 'قفل‌شده' if product.placement.locked else 'باز' }}</td></tr>
+      </table>
+      {% else %}
+      <div class="empty" style="padding:20px;"><div class="ic">📍</div><div>داده‌های جایگاه‌دهی موجود نیست.</div></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+function opentab(evt, tabId){
+  document.querySelectorAll('.tabpanel').forEach(function(el){ el.classList.remove('active'); });
+  document.querySelectorAll('.tabs button').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById(tabId).classList.add('active');
+  if(evt) evt.currentTarget.classList.add('active');
+}
+</script>
+{% endblock %}
